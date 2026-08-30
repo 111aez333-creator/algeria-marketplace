@@ -268,18 +268,18 @@ async function renderAdmin(){
 
 function subscribeData(){
   if(unsub.listings)unsub.listings();
-  unsub.listings=onSnapshot(query(collection(db,'listings'),where('status','==','published'),orderBy('createdAt','desc'),limit(80)),s=>{listings=s.docs.map(d=>({id:d.id,...d.data()}));renderAll();},e=>console.error(e));
+  unsub.listings=onSnapshot(collection(db,'listings'),s=>{listings=s.docs.map(d=>({id:d.id,...d.data()}));renderAll();},e=>console.error(e));
   if(unsub.drivers)unsub.drivers();
-  unsub.drivers=onSnapshot(query(collection(db,'drivers'),where('status','==','approved'),where('verified','==',true)),s=>{drivers=s.docs.map(d=>({id:d.id,...d.data()}));renderDrivers();},e=>console.error(e));
+  unsub.drivers=onSnapshot(collection(db,'drivers'),s=>{drivers=s.docs.map(d=>({id:d.id,...d.data()}));renderDrivers();},e=>console.error(e));
   if(unsub.promotions)unsub.promotions();
-  unsub.promotions=onSnapshot(query(collection(db,'promotions'),where('status','==','approved'),orderBy('createdAt','desc'),limit(20)),s=>{promotions=s.docs.map(d=>({id:d.id,...d.data()}));renderPromotions();},e=>console.error(e));
+  unsub.promotions=onSnapshot(collection(db,'promotions'),s=>{promotions=s.docs.map(d=>({id:d.id,...d.data()}));renderPromotions();},e=>console.error(e));
 }
 
 function subscribeMine(){
   if(!currentUser)return;
   if(isAdmin){
     if(unsub.adminDrivers)unsub.adminDrivers();
-    unsub.adminDrivers=onSnapshot(query(collection(db,'drivers'),orderBy('createdAt','desc'),limit(100)),s=>{
+    unsub.adminDrivers=onSnapshot(collection(db,'drivers'),s=>{
       const allDrivers=s.docs.map(d=>({id:d.id,...d.data()}));
       if(document.querySelector('#adminDrivers')){
         $('#adminDrivers').innerHTML=allDrivers.map(d=>`
@@ -296,22 +296,22 @@ function subscribeMine(){
     },e=>console.error(e));
   }
   if(unsub.myDriver)unsub.myDriver();
-  unsub.myDriver=onSnapshot(query(collection(db,'drivers'),where('ownerUid','==',currentUser.uid),limit(1)),s=>{
+  unsub.myDriver=onSnapshot(collection(db,'drivers'),s=>{
     myDriver=s.docs[0]?{id:s.docs[0].id,...s.docs[0].data()}:null;
     renderMyDriver();
   },e=>console.error(e));
   if(unsub.conversations)unsub.conversations();
-  unsub.conversations=onSnapshot(query(collection(db,'conversations'),where('participants','array-contains',currentUser.uid),orderBy('updatedAt','desc'),limit(30)),s=>{
+  unsub.conversations=onSnapshot(collection(db,'conversations'),s=>{
     conversations=s.docs.map(d=>({id:d.id,...d.data()}));
     renderConversations();
   },e=>console.error(e));
   if(unsub.blocks)unsub.blocks();
-  unsub.blocks=onSnapshot(query(collection(db,'blocks'),where('blockerUid','==',currentUser.uid),limit(100)),s=>{
+  unsub.blocks=onSnapshot(collection(db,'blocks'),s=>{
     blocked=s.docs.map(d=>({id:d.id,...d.data()}));
     renderBlocked();
   },e=>console.error(e));
   if(unsub.deliveryRequests)unsub.deliveryRequests();
-  unsub.deliveryRequests=onSnapshot(query(collection(db,'deliveryRequests'),where('buyerUid','==',currentUser.uid),limit(50)),s=>{
+  unsub.deliveryRequests=onSnapshot(collection(db,'deliveryRequests'),s=>{
     deliveryRequests=s.docs.map(d=>({id:d.id,...d.data()}));
     renderTracking();
   },e=>console.error(e));
@@ -354,7 +354,7 @@ async function openConversationWith(otherUid,listing){
   $('#chatTitle').textContent='💬 '+(listing?.title||'محادثة');
   $('#chatModal').hidden=false;
   if(unsub.messages)unsub.messages();
-  unsub.messages=onSnapshot(query(collection(db,'conversations',id,'messages'),orderBy('createdAt','asc'),limit(100)),s=>{$('#chatMessages').innerHTML=s.docs.map(d=>`<div class="chat-message ${d.data().senderUid===currentUser.uid?'mine':''}">${escapeHtml(d.data().text)}</div>`).join('');});
+  unsub.messages=onSnapshot(collection(db,'conversations',id,'messages'),s=>{$('#chatMessages').innerHTML=s.docs.map(d=>`<div class="chat-message ${d.data().senderUid===currentUser.uid?'mine':''}">${escapeHtml(d.data().text)}</div>`).join('');});
 }
 
 async function sendMessage(e){
