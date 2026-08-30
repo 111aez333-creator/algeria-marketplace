@@ -69,7 +69,9 @@ body {
   color: #fff;
   font-weight: 700;
 }
-.loading-overlay[hidden] { display: none; }
+.loading-overlay[hidden] {
+  display: none !important;
+}
 .spinner {
   width: 40px;
   height: 40px;
@@ -1030,11 +1032,4 @@ button.full { width: 100%; }
   .driver-grid { grid-template-columns: 1fr; }
   .promo-grid { grid-template-columns: 1fr; }
   .admin-grid { grid-template-columns: repeat(2, 1fr); }
-  /* User Activity Status Styles */
-.status-dot { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; padding: 6px 14px; border-radius: 30px; background: var(--bg); border: 1px solid var(--border); }
-.status-dot::before { content: ""; width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.status-active::before { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
-.status-busy::before { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
-.status-offline::before { background: #9ca3af; }
-.activity-label { display: block; font-size: 11px; color: var(--muted); margin-top: 4px; }
 }

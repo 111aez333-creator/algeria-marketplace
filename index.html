@@ -4,18 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b7a75">
-  <meta name="description" content="سوق الجزائر — منصة جزائرية للبيع والشراء والخدمات والتوصيل. أول سوق إلكتروني جزائري موثوق.">
-  <meta name="keywords" content="سوق الجزائر, واد كنيس, بيع, شراء, سيارات, عقار, هواتف, توصيل, الجزائر">
-  <meta name="author" content="سوق الجزائر">
-  <meta name="robots" content="index, follow">
-  <meta property="og:title" content="سوق الجزائر | بيع وشراء في الجزائر">
-  <meta property="og:description" content="منصة جزائرية للبيع والشراء والخدمات والتوصيل">
-  <meta property="og:type" content="website">
-  <meta property="og:image" content="./icon-512.png">
-  <meta property="og:url" content="https://souq-algeria.example/">
-  <meta name="twitter:card" content="summary_large_image">
+  <meta name="description" content="سوق الجزائر — منصة جزائرية للبيع والشراء والخدمات والتوصيل.">
   <title>سوق الجزائر | بيع وشراء في الجزائر</title>
-  <link rel="canonical" href="https://souq-algeria.example/">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -51,13 +41,12 @@
   </header>
 
   <main>
-    <!-- HOME VIEW -->
     <section id="homeView" class="view active">
       <div class="container hero">
         <div class="hero-main">
           <div class="eyebrow-pill">🇩🇿 منصة جزائرية موثوقة</div>
           <h1>كل ما تحتاجه، <span>في سوق واحد.</span></h1>
-          <p>بيع، اشري، لقى الخدمات، واستعمل التوصيل مع موصّلين موثّقين — بطريقة بسيطة وواضحة وآمنة.</p>
+          <p>بيع، اشري، لقى الخدمات، واستعمل التوصيل مع موصّلين موثّقين.</p>
           <div class="hero-search">
             <span>⌕</span><input id="heroSearch" type="search" placeholder="ابحث عن منتج، سيارة، عقار أو خدمة...">
             <button class="primary" id="heroSearchBtn">بحث</button>
@@ -74,7 +63,7 @@
         <div class="hero-trust">
           <div class="trust-icon">🛡️</div>
           <h2>نبنيو الثقة من البداية</h2>
-          <p>تقييمات، تبليغات، ومراجعة حسابات الموصّلين. الذكاء الاصطناعي يساعد الإدارة، والقرار النهائي يبقى للإنسان.</p>
+          <p>تقييمات، تبليغات، ومراجعة حسابات الموصّلين.</p>
           <div class="trust-points"><span>✓ حسابات موثقة</span><span>✓ بلاغات فورية</span><span>✓ موصّلون 18+</span></div>
         </div>
       </div>
@@ -93,7 +82,6 @@
           <button class="text-btn" data-view="search">كل الإعلانات ←</button>
         </div>
         <div id="homeListings" class="listing-grid"></div>
-        <div class="load-more-wrap" id="homeLoadMoreWrap" hidden><button class="secondary" id="homeLoadMore">تحميل المزيد</button></div>
       </section>
 
       <section class="container section feature-strip">
@@ -123,17 +111,14 @@
       </section>
     </section>
 
-    <!-- CATEGORIES VIEW -->
     <section id="categoriesView" class="view container page-section">
       <div class="page-heading">
         <div class="section-kicker">تصفح</div>
         <h1>كل الأقسام</h1>
-        <p>اختار القسم باش توصل للمنتج بسرعة.</p>
       </div>
       <div id="allCategoryGrid" class="category-grid category-grid-large"></div>
     </section>
 
-    <!-- SEARCH VIEW -->
     <section id="searchView" class="view container page-section">
       <div class="page-heading">
         <div class="section-kicker">البحث</div>
@@ -164,17 +149,14 @@
             </select>
           </div>
           <div id="resultsGrid" class="listing-grid"></div>
-          <div class="load-more-wrap" id="searchLoadMoreWrap" hidden><button class="secondary" id="searchLoadMore">تحميل المزيد</button></div>
         </div>
       </div>
     </section>
 
-    <!-- POST VIEW -->
     <section id="postView" class="view container page-section narrow-page">
       <div class="page-heading">
         <div class="section-kicker">بيع</div>
         <h1>نشر إعلان جديد</h1>
-        <p>كلما كانت المعلومات واضحة، كلما لقى إعلانك المشتري أسرع.</p>
       </div>
       <form id="postForm" class="form-card">
         <div class="form-section">
@@ -195,9 +177,9 @@
         <div class="form-section">
           <h3>التفاصيل والصور</h3>
           <label>الوصف<textarea name="description" id="postDesc" required rows="5" maxlength="1500" placeholder="اكتب حالة المنتج، المواصفات والعيوب إن وجدت..."></textarea></label>
-          <label>رفع صور متعددة (من الجهاز)<input type="file" id="imageFileInput" accept="image/jpeg,image/png,image/webp" multiple><small class="muted">JPG / PNG / WebP — حتى 8MB لكل صورة. يتم رفعها إلى Cloudinary وتحسينها تلقائياً.</small></label>
+          <label>رفع صور متعددة (من الجهاز)<input type="file" id="imageFileInput" accept="image/jpeg,image/png,image/webp" multiple><small class="muted">JPG / PNG / WebP — حتى 8MB لكل صورة.</small></label>
           <div id="imagePreviewGrid" class="image-preview-grid"></div>
-          <label>أو روابط الصور <span class="muted">(اختياري، افصل بينها بفاصلة)</span><input name="imageUrls" id="imageUrlInput" type="text" placeholder="https://... , https://..."></label>
+          <label>أو روابط الصور <span class="muted">(اختياري)</span><input name="imageUrls" id="imageUrlInput" type="text" placeholder="https://... , https://..."></label>
         </div>
         <div class="form-section">
           <h3>التواصل والاستلام</h3>
@@ -215,15 +197,13 @@
       </form>
     </section>
 
-    <!-- DELIVERY VIEW -->
     <section id="deliveryView" class="view container page-section">
       <div class="page-heading">
         <div class="section-kicker">🚚 التوصيل</div>
         <h1>موصّلون موثّقون</h1>
-        <p>شوف حالة الموصل مباشرة: نشط، مشغول أو غير متصل.</p>
       </div>
       <div class="safety-banner">
-        <div><b>نظام نشاط الموصلين</b><p>🟢 نشط الآن • 🟠 مشغول • ⚫ غير متصل — الحالة تتحدث تلقائياً حسب آخر نشاط.</p></div>
+        <div><b>نظام نشاط الموصلين</b><p>🟢 نشط الآن • 🟠 مشغول • ⚫ غير متصل</p></div>
         <span>🛡️</span>
       </div>
       <div id="myDriverStatus" class="form-card driver-status-panel" hidden></div>
@@ -242,35 +222,30 @@
             <label>نوع المركبة<select name="vehicle"><option>سيارة</option><option>دراجة نارية</option><option>شاحنة صغيرة</option></select></label>
             <label>رقم المركبة <span class="muted">(اختياري)</span><input name="vehicleNumber" maxlength="30"></label>
           </div>
-          <label class="check"><input name="adult" type="checkbox" required> أؤكد أن عمري 18 سنة أو أكثر وأن المعلومات صحيحة.</label>
-          <label class="check"><input name="privacy" type="checkbox" required> أوافق على مراجعة بياناتي لغرض تفعيل حساب الموصّل فقط.</label>
-          <label class="check"><input name="idDoc" type="checkbox" required> أوافق على رفع وثيقة الهوية لمراجعة الإدارة (تبقى خاصة ولا تظهر للعامة).</label>
+          <label class="check"><input name="adult" type="checkbox" required> أؤكد أن عمري 18 سنة أو أكثر.</label>
+          <label class="check"><input name="privacy" type="checkbox" required> أوافق على مراجعة بياناتي.</label>
+          <label class="check"><input name="idDoc" type="checkbox" required> أوافق على رفع وثيقة الهوية للإدارة.</label>
           <button class="primary" type="submit">إرسال طلب المراجعة</button>
         </form>
       </div>
     </section>
 
-    <!-- DELIVERY TRACKING VIEW -->
     <section id="trackingView" class="view container page-section">
       <div class="page-heading">
         <div class="section-kicker">📦 التتبع</div>
         <h1>طلبات التوصيل</h1>
-        <p>تتبع حالة طلبات التوصيل الخاصة بك.</p>
       </div>
       <div id="trackingList" class="tracking-list"></div>
     </section>
 
-    <!-- FAVORITES VIEW -->
     <section id="favoritesView" class="view container page-section">
       <div class="page-heading">
         <div class="section-kicker">محفوظ</div>
         <h1>المفضلة</h1>
-        <p>الإعلانات اللي حبيتها تلقاها هنا.</p>
       </div>
       <div id="favoritesGrid" class="listing-grid"></div>
     </section>
 
-    <!-- PROFILE VIEW -->
     <section id="profileView" class="view container page-section">
       <div class="page-heading">
         <div class="section-kicker">الملف الشخصي</div>
@@ -290,12 +265,10 @@
       </div>
     </section>
 
-    <!-- ACCOUNT VIEW -->
     <section id="accountView" class="view container page-section">
       <div class="page-heading">
         <div class="section-kicker">حسابي</div>
         <h1>الحساب والمحادثات</h1>
-        <p>دخول Google، الرسائل، والحسابات المحظورة.</p>
       </div>
       <div class="account-grid">
         <div class="form-card account-card">
@@ -307,7 +280,6 @@
             <button class="secondary" id="firebaseLogout" hidden>تسجيل الخروج</button>
           </div>
           <div id="firebaseState" class="notice">Firebase: جاري التحقق...</div>
-          <div class="account-stats" id="accountStats"></div>
         </div>
         <div class="form-card">
           <h2>💬 الرسائل</h2>
@@ -332,12 +304,10 @@
       </div>
     </section>
 
-    <!-- PROMOTIONS VIEW -->
     <section id="promotionsView" class="view container page-section">
       <div class="page-heading">
         <div class="section-kicker">📣 الترويج</div>
         <h1>ترويج مجاني للمشاريع</h1>
-        <p>روّج متجرك، صفحتك، موقعك أو مشروعك مجاناً على سوق الجزائر.</p>
       </div>
       <div class="promo-grid" id="promoGrid"></div>
       <div class="form-card" style="margin-top:24px">
@@ -363,12 +333,10 @@
       </div>
     </section>
 
-    <!-- ADMIN VIEW -->
     <section id="adminView" class="view container page-section">
       <div class="page-heading">
         <div class="section-kicker">إدارة</div>
         <h1>لوحة الإدارة</h1>
-        <p>مراجعة الإعلانات، الموصّلين، البلاغات، التوثيق والترويج.</p>
       </div>
       <div class="admin-grid">
         <div class="stat"><span>إعلانات</span><b id="statListings">0</b></div>
@@ -406,8 +374,8 @@
           <div class="ai-list">
             <div><span>1</span><b>مساعدة في التصنيف</b><small>اقتراح القسم المناسب للإعلان.</small></div>
             <div><span>2</span><b>تحسين الوصف</b><small>مساعدة البائع على كتابة وصف واضح.</small></div>
-            <div><span>3</span><b>تنبيه للمحتوى المشبوه</b><small>يرسل الحالات المشكوك فيها للإدارة، والقرار النهائي يبقى للإنسان.</small></div>
-            <div><span>4</span><b>كشف التكرار والسبام</b><small>مقارنة العناوين والصور مع الإعلانات الحالية.</small></div>
+            <div><span>3</span><b>تنبيه للمحتوى المشبوه</b><small>يرسل الحالات المشكوك فيها للإدارة.</small></div>
+            <div><span>4</span><b>كشف التكرار والسبام</b><small>مقارنة العناوين والصور.</small></div>
           </div>
           <div id="aiAdminAlerts" class="admin-list" style="margin-top:12px"></div>
         </div>
@@ -415,7 +383,6 @@
     </section>
   </main>
 
-  <!-- CHAT MODAL -->
   <div id="chatModal" class="modal" hidden>
     <div class="modal-backdrop" data-close-chat></div>
     <div class="modal-card chat-card">
@@ -426,7 +393,6 @@
     </div>
   </div>
 
-  <!-- REPORT MODAL -->
   <div id="reportModal" class="modal" hidden>
     <div class="modal-backdrop" data-close-report></div>
     <div class="modal-card">
@@ -449,7 +415,6 @@
     </div>
   </div>
 
-  <!-- LISTING MODAL -->
   <div id="listingModal" class="modal" hidden>
     <div class="modal-backdrop" data-close-modal></div>
     <div class="modal-card modal-large">
@@ -458,7 +423,6 @@
     </div>
   </div>
 
-  <!-- RATING MODAL -->
   <div id="ratingModal" class="modal" hidden>
     <div class="modal-backdrop" data-close-rating></div>
     <div class="modal-card">
