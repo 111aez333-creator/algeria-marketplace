@@ -884,7 +884,15 @@ button.full { width: 100%; }
 
 /* Chat */
 .chat-card { max-width: 580px; }
-.chat-title { font-weight: 900; font-size: 18px; margin-bottom: 12px; padding-left: 30px; }
+.chat-title { font-weight: 900; font-size: 18px; padding-left: 30px; }
+.chat-header-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.danger-text { color: var(--danger) !important; }
+.terms-body { display: flex; flex-direction: column; gap: 10px; line-height: 1.8; font-size: 14px; max-height: 60vh; overflow-y: auto; }
+.terms-body p { margin: 0; }
+.kyc-thumbs { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+.kyc-thumbs img { width: 70px; height: 70px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: zoom-in; }
+.spam-flag { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 800; display: inline-block; margin-top: 6px; }
+.admin-item select.small-select { border: 1px solid var(--border); border-radius: 8px; padding: 6px; font-size: 12px; font-family: inherit; background: var(--card-bg); color: var(--text); }
 .chat-messages {
   height: 420px;
   overflow: auto;

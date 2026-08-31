@@ -1,4 +1,4 @@
-const CACHE_NAME = 'souq-algeria-final-v1';
+const CACHE_NAME = 'souq-algeria-final-v2';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

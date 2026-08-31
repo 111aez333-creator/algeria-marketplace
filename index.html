@@ -298,8 +298,15 @@
           <div id="myListingsGrid" class="listing-grid"></div>
         </div>
         <div class="form-card" id="myDeliveriesCard" hidden>
-          <h2>📦 طلبات التوصيل</h2>
+          <h2>📦 طلبات التوصيل (كمشتري)</h2>
           <div id="myDeliveriesList" class="tracking-list"></div>
+        </div>
+        <div class="form-card" id="myDriverDeliveriesCard" hidden>
+          <h2>🚚 طلبات موكّلة لي (كموصّل)</h2>
+          <div id="myDriverDeliveriesList" class="tracking-list"></div>
+        </div>
+        <div class="form-card">
+          <button type="button" class="text-btn" id="openTermsBtn">📜 الشروط والخصوصية</button>
         </div>
       </div>
     </section>
@@ -348,26 +355,36 @@
       </div>
       <div class="admin-columns">
         <div class="form-card">
-          <h2>📢 مراجعة الإعلانات</h2>
+          <h2>⏳ إعلانات قيد المراجعة</h2>
+          <div id="adminPendingListings" class="admin-list"></div>
+        </div>
+        <div class="form-card">
+          <h2>📢 كل الإعلانات</h2>
           <div id="adminListings" class="admin-list"></div>
         </div>
         <div class="form-card">
           <h2>🚚 مراجعة الموصلين</h2>
           <div id="adminDrivers" class="admin-list"></div>
         </div>
+      </div>
+      <div class="admin-columns" style="margin-top:16px">
+        <div class="form-card">
+          <h2>📦 طلبات التوصيل</h2>
+          <div id="adminDeliveryRequests" class="admin-list"></div>
+        </div>
         <div class="form-card">
           <h2>🚩 البلاغات</h2>
           <div id="adminReports" class="admin-list"></div>
+        </div>
+        <div class="form-card">
+          <h2>📣 مراجعة الترويجات</h2>
+          <div id="adminPromotions" class="admin-list"></div>
         </div>
       </div>
       <div class="admin-columns" style="margin-top:16px">
         <div class="form-card">
           <h2>👤 إدارة المستخدمين</h2>
           <div id="adminUsers" class="admin-list"></div>
-        </div>
-        <div class="form-card">
-          <h2>📣 مراجعة الترويجات</h2>
-          <div id="adminPromotions" class="admin-list"></div>
         </div>
         <div class="form-card">
           <h2>🤖 AI مساعد الإدارة</h2>
@@ -387,9 +404,54 @@
     <div class="modal-backdrop" data-close-chat></div>
     <div class="modal-card chat-card">
       <button class="modal-close" data-close-chat>×</button>
-      <div id="chatTitle" class="chat-title">💬 المحادثة</div>
+      <div class="chat-header-row">
+        <div id="chatTitle" class="chat-title">💬 المحادثة</div>
+        <button type="button" id="blockUserBtn" class="text-btn danger-text">🚫 حظر</button>
+      </div>
       <div id="chatMessages" class="chat-messages"></div>
       <form id="chatForm" class="chat-form"><input id="chatInput" maxlength="1000" required placeholder="اكتب رسالة..."><button class="primary">إرسال</button></form>
+    </div>
+  </div>
+
+  <div id="deliveryRequestModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-deliveryreq></div>
+    <div class="modal-card">
+      <button class="modal-close" data-close-deliveryreq>×</button>
+      <h2>🚚 طلب توصيل</h2>
+      <p class="muted">لأمان الجميع، لازم تأكيد الهوية قبل ما يوصلك الطلب. معلوماتك تتشاف غير من إدارة الموقع.</p>
+      <form id="deliveryRequestForm">
+        <input type="hidden" id="deliveryReqListingId">
+        <div class="form-grid">
+          <label>الاسم الكامل<input name="fullName" required maxlength="80"></label>
+          <label>رقم الهاتف<input name="phone" inputmode="tel" required maxlength="30"></label>
+          <label>الولاية<select name="wilaya" id="deliveryReqWilaya" required></select></label>
+          <label>البلدية<input name="city" required maxlength="60"></label>
+        </div>
+        <label>العنوان بالتفصيل<textarea name="address" required rows="2" maxlength="300" placeholder="رقم المنزل، الحي، أقرب معلم..."></textarea></label>
+        <div class="form-grid">
+          <label>صورة بطاقة التعريف<input type="file" id="idCardInput" accept="image/jpeg,image/png,image/webp" required><small class="muted">تُستعمل للتحقق فقط.</small></label>
+          <label>صورة سيلفي (وجهك)<input type="file" id="selfieInput" accept="image/jpeg,image/png,image/webp" required><small class="muted">للتأكد من هويتك.</small></label>
+        </div>
+        <button type="button" id="useMyLocationBtn" class="secondary">📍 استعمل موقعي الحالي (اختياري)</button>
+        <div id="deliveryReqLocationLabel" class="muted" style="margin-top:6px;font-size:13px"></div>
+        <label class="check"><input name="confirm" type="checkbox" required> أؤكد صحة المعلومات وأوافق على مراجعتها من الإدارة.</label>
+        <button class="primary large full" type="submit">إرسال طلب التوصيل</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="termsModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-terms></div>
+    <div class="modal-card">
+      <button class="modal-close" data-close-terms>×</button>
+      <h2>📜 الشروط والخصوصية</h2>
+      <div class="terms-body">
+        <p><b>الاستعمال:</b> سوق الجزائر منصة للربط بين البائعين والمشترين والموصّلين. المستخدم مسؤول عن صحة إعلاناته ومعلوماته.</p>
+        <p><b>الخصوصية:</b> بياناتك الشخصية (كالهوية والصور) تُستعمل فقط للتحقق ولا تُشارك مع أطراف خارجية إلا بموافقتك أو بطلب قانوني.</p>
+        <p><b>المحتوى الممنوع:</b> ممنوع نشر محتوى احتيالي، مخالف للقانون، أو مسيء. الإدارة تحتفظ بحق حذف أي إعلان أو حساب مخالف.</p>
+        <p><b>التوصيل:</b> طلبات التوصيل تتطلب تحقق هوية لحماية الموصّلين والمشترين على حد سواء.</p>
+        <p><b>التبليغ:</b> يمكن لأي مستخدم التبليغ عن محتوى أو سلوك مخالف، وتتم المراجعة من طرف الإدارة.</p>
+      </div>
     </div>
   </div>
 
