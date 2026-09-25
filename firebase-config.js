@@ -1,7 +1,7 @@
 // إعداد Firebase — عوّض القيم التالية بقيم مشروعك من Firebase Console
 // (Project settings → General → Your apps → SDK setup and configuration)
 //
-// هذا الملف يُحمَّل من app.js ومن sw.js، ويجب أن يبقى في نفس مجلد index.html.
+// هذا الملف يُحمَّل من app.js، admin.js، ومن sw.js، ويجب أن يبقى في نفس مجلد index.html.
 
 export const firebaseConfig = {
   apiKey: "AIzaSyDl8NxZS0WmyjeJpnS6BVWgL3_xi4dye-E",

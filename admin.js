@@ -8,7 +8,8 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
-// ⚠️ فقط هذا الإيميل يقدر يدخل للوحة الإدارة. بدّله من هنا إذا حبيت تبدّل حساب الأدمن.
+// ⚠️ فقط هذا الإيميل يقدر يدخل للوحة الإدارة. بدّلو من هنا إذا حبيت تبدّل حساب الأدمن،
+// وبدّل نفس القيمة فـ firestore.rules (primaryAdminEmail) باش يبقاو متوافقين.
 const ADMIN_EMAIL = '111aez333@gmail.com';
 
 const firebaseApp = initializeApp(firebaseConfig);

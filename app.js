@@ -5,7 +5,7 @@ import {
 import {
   getFirestore, collection, addDoc, doc, getDoc, setDoc, updateDoc, deleteDoc,
   query, orderBy, limit, where, onSnapshot, serverTimestamp, arrayUnion, arrayRemove,
-  increment
+  getDocs, writeBatch, increment, startAfter
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
@@ -13,6 +13,7 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 const CLOUDINARY_CLOUD_NAME = 'prp1oxzx';
 const CLOUDINARY_UPLOAD_PRESET = 'Storedz';
@@ -47,7 +48,7 @@ function analyzeSpam(text){
 function isDuplicatePost(title,ownerUid){
   const norm=String(title||'').trim().toLowerCase();
   if(!norm)return false;
-  const recentWindow=10*60*1000; // 10 minutes
+  const recentWindow=10*60*1000;
   const nowApprox=Date.now();
   return listings.some(l=>{
     if(l.ownerUid!==ownerUid)return false;
@@ -58,7 +59,7 @@ function isDuplicatePost(title,ownerUid){
 }
 
 let listings=[], drivers=[], favorites=[], conversations=[], blocked=[];
-let promotions=[], deliveryRequests=[];
+let promotions=[], deliveryRequests=[], usersList=[];
 let currentUser=null, currentProfile=null;
 let isAdmin=false, myDriver=null, activeConversation=null;
 let unsub={};
@@ -140,7 +141,6 @@ async function uploadImageToCloudinary(file,folder='souq-algeria/listings'){
   return data.secure_url;
 }
 
-// ----- Post-listing image upload wiring (fixes: product image not showing) -----
 function renderImagePreview(){
   const el=$('#imagePreviewGrid');if(!el)return;
   el.innerHTML=currentImages.map((url,i)=>`<div class="image-preview"><img src="${escapeHtml(cloudinaryUrl(url,200,200))}" alt=""><button type="button" class="remove-img" data-i="${i}">×</button></div>`).join('');
@@ -207,7 +207,6 @@ function renderListings(items,target){
   $$(target+' .listing').forEach(c=>c.onclick=()=>openListing(c.dataset.id));
 }
 
-// ----- Favorites (fixes: like/save button not toggling off) -----
 async function toggleFavorite(id){
   if(!requireLogin())return;
   const isFav=favorites.includes(id);
@@ -250,14 +249,15 @@ function applyFilters(){
   renderListings(arr,'#resultsGrid');
 }
 
+// ----- FIX: لا نزيد المشاهدات إذا صاحب الإعلان يشوف إعلانه بنفسو -----
 async function openListing(id){
   const x=listings.find(i=>String(i.id)===String(id));if(!x)return;
-  const seenKey='viewed_'+id;
-  if(currentUser&&!sessionStorage.getItem(seenKey)){
-    sessionStorage.setItem(seenKey,'1');
-    try{await updateDoc(doc(db,'listings',id),{views:increment(1)});}catch{}
-  }
   const owner=x.ownerUid,current=owner===currentUser?.uid;
+  const seenKey='viewed_'+id;
+  if(currentUser&&!current&&!sessionStorage.getItem(seenKey)){
+    sessionStorage.setItem(seenKey,'1');
+    try{await updateDoc(doc(db,'listings',id),{views:increment(1),updatedAt:serverTimestamp()});}catch{}
+  }
   const allImages=x.images?.length?x.images:(x.image?[x.image]:[]);
   const rating=x.ratingCount?(x.ratingSum/x.ratingCount).toFixed(1):null;
   const gallery=allImages.length?
@@ -540,7 +540,6 @@ async function sendMessage(e){
   }catch(e){toast('تعذر إرسال الرسالة');}
 }
 
-// ----- Block user -----
 async function blockActiveUser(){
   if(!activeConversation||!requireLogin())return;
   const otherUid=activeConversation.otherUid;
@@ -555,7 +554,6 @@ async function unblockUser(uid){
   try{await deleteDoc(doc(db,'blocks',currentUser.uid+'_'+uid));toast('تم إلغاء الحظر');}catch(e){toast('تعذر إلغاء الحظر');}
 }
 
-// ----- Ratings (was previously dead UI, now wired) -----
 function openRating(sellerUid,listingId){
   if(!requireLogin())return;
   ratingTarget={sellerUid,listingId};
@@ -577,8 +575,10 @@ function initRatingForm(){
     if(!val){toast('اختار عدد النجوم أولاً');return;}
     const comment=$('#ratingForm [name=comment]').value.trim();
     try{
-      await updateDoc(doc(db,'listings',ratingTarget.listingId),{ratingSum:increment(val),ratingCount:increment(1)});
+      // الترتيب مهم: نضيفو التقييم كمستند أولاً، وبعدها نزيدو المجموع فالإعلان،
+      // باش لو فشلت الخطوة الثانية لأي سبب يبقى عندنا أثر التقييم فـreviews.
       await addDoc(collection(db,'listings',ratingTarget.listingId,'reviews'),{raterUid:currentUser.uid,raterName:currentProfile?.displayName||currentUser.displayName,rating:val,comment,createdAt:serverTimestamp()});
+      await updateDoc(doc(db,'listings',ratingTarget.listingId),{ratingSum:increment(val),ratingCount:increment(1),updatedAt:serverTimestamp()});
       toast('شكراً على تقييمك ⭐');
       $('#ratingModal').hidden=true;e.target.reset();
     }catch(err){toast('تعذر إرسال التقييم');}
@@ -603,6 +603,7 @@ function renderAll(){
   if($('#searchView').classList.contains('active'))applyFilters();
 }
 
+// ----- بيانات عامة: بلا deliveryRequests (ماشي public data — كل مستخدم يشوف غير طلباتو) -----
 function subscribeData(){
   if(unsub.listings)unsub.listings();
   unsub.listings=onSnapshot(collection(db,'listings'),s=>{listings=s.docs.map(d=>({id:d.id,...d.data()}));renderAll();},e=>console.error(e));
@@ -610,26 +611,55 @@ function subscribeData(){
   unsub.drivers=onSnapshot(collection(db,'drivers'),s=>{drivers=s.docs.map(d=>({id:d.id,...d.data()}));renderDrivers();renderMyDriver();renderMyDriverDeliveries();},e=>console.error(e));
   if(unsub.promotions)unsub.promotions();
   unsub.promotions=onSnapshot(collection(db,'promotions'),s=>{promotions=s.docs.map(d=>({id:d.id,...d.data()}));renderPromotions();},e=>console.error(e));
-  if(unsub.deliveryRequestsAll)unsub.deliveryRequestsAll();
-  unsub.deliveryRequestsAll=onSnapshot(collection(db,'deliveryRequests'),s=>{deliveryRequests=s.docs.map(d=>({id:d.id,...d.data()}));renderTracking();renderMyDeliveries();renderMyDriverDeliveries();},e=>console.error(e));
+}
+
+// ----- FIX: طلبات التوصيل خاصة بكل مستخدم — لازم query مفلترة، ماشي كل الـcollection -----
+// نديرو listener للمشتري (buyerUid) و listener تاني للموصّل (driverId إذا كان عندو myDriver مفعّل)، ونجمعوهم فمصفوفة وحدة.
+let myBuyerDeliveries=[], myDriverDeliveriesRaw=[];
+function mergeDeliveryRequests(){
+  const map=new Map();
+  [...myBuyerDeliveries,...myDriverDeliveriesRaw].forEach(r=>map.set(r.id,r));
+  deliveryRequests=[...map.values()];
+  renderTracking();renderMyDeliveries();renderMyDriverDeliveries();
 }
 
 function subscribeMine(){
   if(!currentUser)return;
   if(unsub.myDriver)unsub.myDriver();
   unsub.myDriver=onSnapshot(query(collection(db,'drivers'),where('ownerUid','==',currentUser.uid)),s=>{
+    const prevId=myDriver?.id;
     myDriver=s.docs[0]?{id:s.docs[0].id,...s.docs[0].data()}:null;
-    renderMyDriver();renderMyDriverDeliveries();
+    renderMyDriver();
+    if(myDriver?.id!==prevId)subscribeDriverDeliveries();
   },e=>console.error(e));
+
   if(unsub.conversations)unsub.conversations();
   unsub.conversations=onSnapshot(query(collection(db,'conversations'),where('participants','array-contains',currentUser.uid)),s=>{
     conversations=s.docs.map(d=>({id:d.id,...d.data()}));
     renderConversations();
   },e=>console.error(e));
+
   if(unsub.blocks)unsub.blocks();
   unsub.blocks=onSnapshot(query(collection(db,'blocks'),where('blockerUid','==',currentUser.uid)),s=>{
     blocked=s.docs.map(d=>({id:d.id,...d.data()}));
     renderBlocked();renderAll();
+  },e=>console.error(e));
+
+  if(unsub.buyerDeliveries)unsub.buyerDeliveries();
+  unsub.buyerDeliveries=onSnapshot(query(collection(db,'deliveryRequests'),where('buyerUid','==',currentUser.uid)),s=>{
+    myBuyerDeliveries=s.docs.map(d=>({id:d.id,...d.data()}));
+    mergeDeliveryRequests();
+  },e=>console.error(e));
+
+  subscribeDriverDeliveries();
+}
+
+function subscribeDriverDeliveries(){
+  if(unsub.driverDeliveries)unsub.driverDeliveries();
+  if(!myDriver?.id){myDriverDeliveriesRaw=[];mergeDeliveryRequests();return;}
+  unsub.driverDeliveries=onSnapshot(query(collection(db,'deliveryRequests'),where('driverId','==',myDriver.id)),s=>{
+    myDriverDeliveriesRaw=s.docs.map(d=>({id:d.id,...d.data()}));
+    mergeDeliveryRequests();
   },e=>console.error(e));
 }
 
@@ -642,9 +672,8 @@ async function renderProfile(uid){
 }
 
 $$('[data-view]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.view)));
-$('#globalSearch').addEventListener('input',()=>{go('search');applyFilters();});
+$('#globalSearch').addEventListener('input',()=>{go('search');applyFilters();$('#clearSearch').hidden=!$('#globalSearch').value;});
 $('#clearSearch')?.addEventListener('click',()=>{$('#globalSearch').value='';$('#clearSearch').hidden=true;applyFilters();});
-$('#globalSearch').addEventListener('input',()=>{$('#clearSearch').hidden=!$('#globalSearch').value;});
 $('#heroSearchBtn').onclick=()=>{const q=$('#heroSearch').value.trim();$('#globalSearch').value=q;go('search');applyFilters();};
 $('#postForm').addEventListener('submit',submitListing);
 $('#driverForm').addEventListener('submit',submitDriver);
@@ -694,10 +723,16 @@ onAuthStateChanged(auth,async user=>{
     }catch(e){console.error(e);isAdmin=false;}
   }else{
     currentProfile=null;isAdmin=false;favorites=[];blocked=[];conversations=[];
+    myDriver=null;myBuyerDeliveries=[];myDriverDeliveriesRaw=[];deliveryRequests=[];
+    ['myDriver','conversations','blocks','buyerDeliveries','driverDeliveries'].forEach(k=>{
+      if(typeof unsub[k]==='function')unsub[k]();
+      delete unsub[k];
+    });
     setFirebaseState('غير مسجل');
   }
   updateAccountUI();
   renderAll();
+  renderTracking();renderMyDeliveries();renderMyDriverDeliveries();
 });
 
 function updateAccountUI(){
@@ -711,4 +746,7 @@ function updateAccountUI(){
 window.addEventListener('load',()=>{
   const params=new URLSearchParams(window.location.search);
   if(params.get('view')==='listing')openListing(params.get('id'));
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW:',e));
+  }
 });
