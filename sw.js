@@ -1,4 +1,4 @@
-const CACHE_NAME = 'souq-algeria-v5';
+const CACHE_NAME = 'souq-algeria-v7';
 const APP_SHELL = [
   './', './index.html', './style.css', './app.js',
   './firebase-config.js', './manifest.json',
@@ -9,8 +9,12 @@ const APP_SHELL = [
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .catch(() => {})
+      // FIX: كنّا نستعملو cache.addAll (كل الملفات أو ولا حتى واحد)، فإذا فشل ملف
+      // وحد (رابط غالط، خطأ 404...) ما كان يتخبّى حتى ملف، والباقي يبقى بلا كاش
+      // بلا ما يبان أي خطأ. دابا نخبّيو كل ملف بروحو، ونكملو حتى لو ملف وحد طاح.
+      .then((cache) => Promise.all(
+        APP_SHELL.map((url) => cache.add(url).catch((err) => console.warn('SW: تعذر تخبئة', url, err)))
+      ))
       .then(() => self.skipWaiting())
   );
 });
@@ -30,14 +34,23 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;
 
   if (req.mode === 'navigate') {
+    // FIX: كنّا نخبّيو أي صفحة تنفتح بالتنقل (navigate) تحت مفتاح './index.html'،
+    // يعني كي تفتح admin.html كان يبدّل محتوى الصفحة الرئيسية المخبّية بمحتوى صفحة الإدارة!
+    // دابا نتحقق: كان التنقل فعلاً نحو الصفحة الرئيسية (/ أو /index.html) قبل ما نخبّيه.
+    const isHomeNav = /\/(index\.html)?$/.test(url.pathname);
     e.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put('./index.html', copy));
+          if (isHomeNav) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put('./index.html', copy));
+          }
           return res;
         })
-        .catch(() => caches.match('./index.html'))
+        // FIX: caches.match ممكن يرجّع undefined إذا الصفحة ماكانتش متخبّية بعد
+        // (أول تحميل، أو الكاش فشل). respondWith(undefined) يطيّح خطأ
+        // "Failed to convert value to 'Response'" — دابا نرجّعو Response.error() صحيحة بدلها.
+        .catch(async () => (isHomeNav && (await caches.match('./index.html'))) || Response.error())
     );
     return;
   }
@@ -49,6 +62,6 @@ self.addEventListener('fetch', (e) => {
         caches.open(CACHE_NAME).then((c) => c.put(req, copy));
         return res;
       })
-      .catch(() => caches.match(req))
+      .catch(async () => (await caches.match(req)) || Response.error())
   );
 });

@@ -324,6 +324,8 @@ async function submitListing(e){
 
 async function submitDriver(e){
   e.preventDefault();if(!requireLogin())return;
+  // FIX: تفادي إرسال أكثر من طلب موصّل لنفس الحساب
+  if(myDriver){toast(myDriver.status==='pending'?'عندك طلب موصّل قيد المراجعة بالفعل ⏳':'عندك حساب موصّل مسجّل بالفعل 🚚');return;}
   const f=new FormData(e.target),birth=new Date(f.get('birth')),age=(Date.now()-birth.getTime())/(365.25*24*3600*1000);
   if(age<18){toast('لازم تكون 18 سنة أو أكثر');return;}
   const item={ownerUid:currentUser.uid,name:String(f.get('name')||'').trim(),birthDate:String(f.get('birth')),phone:String(f.get('phone')||'').trim(),wilaya:f.get('wilaya'),vehicle:f.get('vehicle'),vehicleNumber:String(f.get('vehicleNumber')||'').trim(),status:'pending',verified:false,activityStatus:'offline',lastSeenAt:serverTimestamp(),rating:null,rides:0,createdAt:serverTimestamp(),updatedAt:serverTimestamp()};
@@ -575,13 +577,19 @@ function initRatingForm(){
     if(!val){toast('اختار عدد النجوم أولاً');return;}
     const comment=$('#ratingForm [name=comment]').value.trim();
     try{
-      // الترتيب مهم: نضيفو التقييم كمستند أولاً، وبعدها نزيدو المجموع فالإعلان،
+      // FIX: معرّف ثابت (raterUid_listingId) بدل معرّف عشوائي، حتى لو حاول نفس المستخدم
+      // يقيّم نفس الإعلان مرة ثانية، تولي العملية "update" ماشي "create"، وقواعد الأمان
+      // تمنع أي update على reviews (allow update: if false) — يعني تقييم واحد فقط للمستخدم بكل إعلان.
+      // الترتيب مهم: نضيفو التقييم أولاً، وبعدها نزيدو المجموع فالإعلان،
       // باش لو فشلت الخطوة الثانية لأي سبب يبقى عندنا أثر التقييم فـreviews.
-      await addDoc(collection(db,'listings',ratingTarget.listingId,'reviews'),{raterUid:currentUser.uid,raterName:currentProfile?.displayName||currentUser.displayName,rating:val,comment,createdAt:serverTimestamp()});
+      const reviewRef=doc(db,'listings',ratingTarget.listingId,'reviews',`${currentUser.uid}_${ratingTarget.listingId}`);
+      await setDoc(reviewRef,{raterUid:currentUser.uid,raterName:currentProfile?.displayName||currentUser.displayName,rating:val,comment,createdAt:serverTimestamp()});
       await updateDoc(doc(db,'listings',ratingTarget.listingId),{ratingSum:increment(val),ratingCount:increment(1),updatedAt:serverTimestamp()});
       toast('شكراً على تقييمك ⭐');
       $('#ratingModal').hidden=true;e.target.reset();
-    }catch(err){toast('تعذر إرسال التقييم');}
+    }catch(err){
+      toast(err.code==='permission-denied'?'لقد قيّمت هذا الإعلان من قبل ⭐':'تعذر إرسال التقييم');
+    }
   });
 }
 
