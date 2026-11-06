@@ -889,8 +889,6 @@ button.full { width: 100%; }
 .danger-text { color: var(--danger) !important; }
 .terms-body { display: flex; flex-direction: column; gap: 10px; line-height: 1.8; font-size: 14px; max-height: 60vh; overflow-y: auto; }
 .terms-body p { margin: 0; }
-.kyc-thumbs { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
-.kyc-thumbs img { width: 70px; height: 70px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: zoom-in; }
 .spam-flag { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 800; display: inline-block; margin-top: 6px; }
 .admin-item select.small-select { border: 1px solid var(--border); border-radius: 8px; padding: 6px; font-size: 12px; font-family: inherit; background: var(--card-bg); color: var(--text); }
 .chat-messages {
@@ -1041,3 +1039,31 @@ button.full { width: 100%; }
   .promo-grid { grid-template-columns: 1fr; }
   .admin-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+#chatModal,
+#deliveryRequestModal,
+#reportModal,
+#ratingModal,
+#termsModal {
+  z-index: 3000;
+}
+/* ---- driver contact / share ---- */
+.driver-phone { margin: 8px 0 4px; font-weight: 800; }
+.driver-phone a { color: var(--primary); text-decoration: none; font-size: 16px; direction: ltr; unicode-bidi: plaintext; }
+.driver-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.driver-actions .small-btn { text-decoration: none; display: inline-flex; align-items: center; }
+.danger-btn { color: #b91c1c !important; }
+.my-del-btn { margin: 8px; width: calc(100% - 16px); }
+
+/* ---- admin: delivery details ---- */
+.admin-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.admin-filters input { flex: 1; min-width: 200px; }
+.admin-wide-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.admin-detail { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: var(--card-bg); }
+.admin-detail h3 { font-size: 15px; margin-bottom: 6px; }
+.admin-detail .row { font-size: 13px; margin: 3px 0; line-height: 1.6; word-break: break-word; }
+.admin-detail .sec { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); font-weight: 700; font-size: 13px; }
+
+
+/* honeypot ضد البوتات: مخفي على الناس */
+.hp { position: absolute !important; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }

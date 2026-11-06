@@ -13,3 +13,7 @@ export const firebaseConfig = {
   appId: "1:277706027135:web:85cb7d9c2737af5547cf4a",
   measurementId: "G-22VJPFBSYB"
 };
+
+// App Check (Fraud Defense / reCAPTCHA Enterprise) — الـ Site key فقط. نفس القيمة تتحط فـ Firebase Console → App Check → Fraud Defense.
+// مفتاح الموقع (site key) عام وما فيهش سر. تأكد أنو نفس المفتاح المسجّل عندك بالضبط.
+export const appCheckSiteKey = "6Lfl6wkuAAAAAP4wRW1dpFw5yGzTZMy93KmqYmhW";

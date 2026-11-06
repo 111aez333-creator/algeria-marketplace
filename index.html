@@ -44,9 +44,9 @@
     <section id="homeView" class="view active">
       <div class="container hero">
         <div class="hero-main">
-          <div class="eyebrow-pill">🇩🇿 منصة جزائرية موثوقة</div>
+          <div class="eyebrow-pill">🇩🇿 وسيط جزائري للبيع والشراء</div>
           <h1>كل ما تحتاجه، <span>في سوق واحد.</span></h1>
-          <p>بيع، اشري، لقى الخدمات، واستعمل التوصيل مع موصّلين موثّقين.</p>
+          <p>بيع، اشري، لقى الخدمات، واستعمل التوصيل مع موصّلين راجعتهم الإدارة.</p>
           <div class="hero-search">
             <span>⌕</span><input id="heroSearch" type="search" placeholder="ابحث عن منتج، سيارة، عقار أو خدمة...">
             <button class="primary" id="heroSearchBtn">بحث</button>
@@ -64,7 +64,7 @@
           <div class="trust-icon">🛡️</div>
           <h2>نبنيو الثقة من البداية</h2>
           <p>تقييمات، تبليغات، ومراجعة حسابات الموصّلين.</p>
-          <div class="trust-points"><span>✓ حسابات موثقة</span><span>✓ بلاغات فورية</span><span>✓ موصّلون 18+</span></div>
+          <div class="trust-points"><span>✓ بلاغات فورية</span><span>✓ تقييمات</span><span>✓ موصّلون 18+</span></div>
         </div>
       </div>
 
@@ -87,7 +87,7 @@
       <section class="container section feature-strip">
         <div class="feature-card">
           <span>🚗</span>
-          <div><b>توصيل داخل الجزائر</b><small>اختار موصّل موثّق وشوف تقييمه.</small></div>
+          <div><b>توصيل داخل الجزائر</b><small>اختار موصّل راجعته الإدارة وتواصل معاه مباشرة.</small></div>
           <button data-view="delivery">اكتشف</button>
         </div>
         <div class="feature-card">
@@ -104,7 +104,7 @@
 
       <section class="container section">
         <div class="section-head">
-          <div><div class="section-kicker">موثوقون</div><h2>موصّلون نشطون</h2></div>
+          <div><div class="section-kicker">التوصيل</div><h2>موصّلون نشطون</h2></div>
           <button class="text-btn" data-view="delivery">كل الموصلين ←</button>
         </div>
         <div id="homeDrivers" class="driver-grid"></div>
@@ -149,6 +149,7 @@
             </select>
           </div>
           <div id="resultsGrid" class="listing-grid"></div>
+          <div class="load-more-wrap"><button id="loadMoreBtn" class="secondary" type="button" hidden>عرض المزيد ↓</button></div>
         </div>
       </div>
     </section>
@@ -159,6 +160,7 @@
         <h1>نشر إعلان جديد</h1>
       </div>
       <form id="postForm" class="form-card">
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
         <div class="form-section">
           <h3>معلومات المنتج</h3>
           <div class="form-grid">
@@ -177,7 +179,7 @@
         <div class="form-section">
           <h3>التفاصيل والصور</h3>
           <label>الوصف<textarea name="description" id="postDesc" required rows="5" maxlength="1500" placeholder="اكتب حالة المنتج، المواصفات والعيوب إن وجدت..."></textarea></label>
-          <label>رفع صور متعددة (من الجهاز)<input type="file" id="imageFileInput" accept="image/jpeg,image/png,image/webp" multiple><small class="muted">JPG / PNG / WebP — حتى 8MB لكل صورة.</small></label>
+          <label>رفع صور متعددة (من الجهاز)<input type="file" id="imageFileInput" accept="image/jpeg,image/png,image/webp" multiple><small class="muted">JPG / PNG / WebP — حتى 5 صور، و8MB لكل صورة.</small></label>
           <div id="imagePreviewGrid" class="image-preview-grid"></div>
           <label>أو روابط الصور <span class="muted">(اختياري)</span><input name="imageUrls" id="imageUrlInput" type="text" placeholder="https://... , https://..."></label>
         </div>
@@ -200,7 +202,7 @@
     <section id="deliveryView" class="view container page-section">
       <div class="page-heading">
         <div class="section-kicker">🚚 التوصيل</div>
-        <h1>موصّلون موثّقون</h1>
+        <h1>الموصّلون</h1>
       </div>
       <div class="safety-banner">
         <div><b>نظام نشاط الموصلين</b><p>🟢 نشط الآن • 🟠 مشغول • ⚫ غير متصل</p></div>
@@ -214,6 +216,7 @@
           <p class="muted">التسجيل يرسل طلب مراجعة فقط. التفعيل النهائي للإدارة.</p>
         </div>
         <form id="driverForm">
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
           <div class="form-grid">
             <label>الاسم واللقب<input name="name" required maxlength="80"></label>
             <label>تاريخ الميلاد<input name="birth" type="date" required></label>
@@ -221,10 +224,11 @@
             <label>الولاية<select name="wilaya" id="driverWilaya" required></select></label>
             <label>نوع المركبة<select name="vehicle"><option>سيارة</option><option>دراجة نارية</option><option>شاحنة صغيرة</option></select></label>
             <label>رقم المركبة <span class="muted">(اختياري)</span><input name="vehicleNumber" maxlength="30"></label>
+            <label>رابط فايسبوك <span class="muted">(اختياري)</span><input name="facebook" type="url" placeholder="https://facebook.com/..." maxlength="200"></label>
           </div>
+          <div class="notice">📞 رقم هاتفك (وواتساب وفايسبوك إذا زدتو) يظهر للجميع باش يتواصلو معاك. تاريخ ميلادك يُستعمل فقط للتأكد أنك 18+ ولا يتم حفظه. الإدارة تراجع بياناتك الأساسية وتقبلك يدوياً، لكنها لا تضمن خدمتك ولا تتحمل مسؤولية التوصيل.</div>
           <label class="check"><input name="adult" type="checkbox" required> أؤكد أن عمري 18 سنة أو أكثر.</label>
           <label class="check"><input name="privacy" type="checkbox" required> أوافق على مراجعة بياناتي.</label>
-          <label class="check"><input name="idDoc" type="checkbox" required> أوافق على رفع وثيقة الهوية للإدارة.</label>
           <button class="primary" type="submit">إرسال طلب المراجعة</button>
         </form>
       </div>
@@ -320,6 +324,7 @@
       <div class="form-card" style="margin-top:24px">
         <h2>أضف ترويجك مجاناً</h2>
         <form id="promoForm">
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
           <div class="form-grid">
             <label>اسم المتجر/المشروع<input name="name" required maxlength="80"></label>
             <label>النوع<select name="type" required>
@@ -360,7 +365,7 @@
     <div class="modal-card">
       <button class="modal-close" data-close-deliveryreq>×</button>
       <h2>🚚 طلب توصيل</h2>
-      <p class="muted">لأمان الجميع، لازم تأكيد الهوية قبل ما يوصلك الطلب. معلوماتك تتشاف غير من إدارة الموقع.</p>
+      <p class="muted">الإدارة تراجع الطلب وتعيّن موصّل. اسمك وهاتفك وعنوانك يتشافو من الإدارة، والبائع، والموصّل المعيّن لطلبك.</p>
       <form id="deliveryRequestForm">
         <input type="hidden" id="deliveryReqListingId">
         <div class="form-grid">
@@ -370,13 +375,9 @@
           <label>البلدية<input name="city" required maxlength="60"></label>
         </div>
         <label>العنوان بالتفصيل<textarea name="address" required rows="2" maxlength="300" placeholder="رقم المنزل، الحي، أقرب معلم..."></textarea></label>
-        <div class="form-grid">
-          <label>صورة بطاقة التعريف<input type="file" id="idCardInput" accept="image/jpeg,image/png,image/webp" required><small class="muted">تُستعمل للتحقق فقط.</small></label>
-          <label>صورة سيلفي (وجهك)<input type="file" id="selfieInput" accept="image/jpeg,image/png,image/webp" required><small class="muted">للتأكد من هويتك.</small></label>
-        </div>
         <button type="button" id="useMyLocationBtn" class="secondary">📍 استعمل موقعي الحالي (اختياري)</button>
         <div id="deliveryReqLocationLabel" class="muted" style="margin-top:6px;font-size:13px"></div>
-        <label class="check"><input name="confirm" type="checkbox" required> أؤكد صحة المعلومات وأوافق على مراجعتها من الإدارة.</label>
+        <label class="check"><input name="confirm" type="checkbox" required> أؤكد صحة المعلومات وأوافق على مراجعتها من الإدارة ومشاركتها مع الموصّل المعيّن.</label>
         <button class="primary large full" type="submit">إرسال طلب التوصيل</button>
       </form>
     </div>
@@ -388,10 +389,11 @@
       <button class="modal-close" data-close-terms>×</button>
       <h2>📜 الشروط والخصوصية</h2>
       <div class="terms-body">
-        <p><b>الاستعمال:</b> سوق الجزائر منصة للربط بين البائعين والمشترين والموصّلين. المستخدم مسؤول عن صحة إعلاناته ومعلوماته.</p>
-        <p><b>الخصوصية:</b> بياناتك الشخصية (كالهوية والصور) تُستعمل فقط للتحقق ولا تُشارك مع أطراف خارجية إلا بموافقتك أو بطلب قانوني.</p>
+        <p><b>وسيط فقط:</b> سوق الجزائر منصة للربط بين البائعين والمشترين والموصّلين. المنصة لا تبيع ولا تشتري ولا توصّل، ولا تضمن أي صفقة أو سلعة أو خدمة، ولا تتحمل مسؤولية ما يحدث بين المستخدمين.</p>
+        <p><b>مسؤوليتك:</b> أنت مسؤول عن التحقق من الطرف الآخر ومن السلعة قبل الدفع. ننصح بالمعاينة والدفع عند الاستلام وبعدم الدفع المسبق.</p>
+        <p><b>الخصوصية:</b> لا نطلب صور هوية. نحفظ فقط بيانات حسابك (الاسم، الإيميل، الهاتف، الولاية) وما تنشره. بيانات طلب التوصيل (الاسم، الهاتف، العنوان) تتشاف من الإدارة والبائع والموصّل المعيّن لهذا الطلب فقط. لا نبيع بياناتك، ولا نشاركها مع أطراف خارجية إلا بطلب قانوني.</p>
+        <p><b>الموصّلون:</b> الموصّلون مستقلون. الإدارة تراجع بياناتهم الأساسية وتقبلهم يدوياً، لكنها لا تضمن خدمتهم.</p>
         <p><b>المحتوى الممنوع:</b> ممنوع نشر محتوى احتيالي، مخالف للقانون، أو مسيء. الإدارة تحتفظ بحق حذف أي إعلان أو حساب مخالف.</p>
-        <p><b>التوصيل:</b> طلبات التوصيل تتطلب تحقق هوية لحماية الموصّلين والمشترين على حد سواء.</p>
         <p><b>التبليغ:</b> يمكن لأي مستخدم التبليغ عن محتوى أو سلوك مخالف، وتتم المراجعة من طرف الإدارة.</p>
       </div>
     </div>

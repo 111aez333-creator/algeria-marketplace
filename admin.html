@@ -59,11 +59,15 @@
         <div class="stat"><span>طلبات توصيل</span><b id="statDeliveryRequests">0</b></div>
         <div class="stat"><span>مستخدمون</span><b id="statUsers">0</b></div>
         <div class="stat"><span>ترويجات</span><b id="statPromotions">0</b></div>
+        <div class="stat"><span>طلبات بانتظار المراجعة</span><b id="statPendingReview">0</b></div>
+        <div class="stat"><span>إعلانات مشبوهة (آلي)</span><b id="statFlagged">0</b></div>
       </div>
       <div class="admin-columns">
         <div class="form-card">
-          <h2>⏳ إعلانات قيد المراجعة</h2>
-          <div id="adminPendingListings" class="admin-list"></div>
+          <h2>🤖 الفحص الآلي للإعلانات</h2>
+          <p class="muted" style="font-size:12px">الإعلانات تُنشر مباشرة بعد فحص آلي. المشبوهة تظهر هنا للمراجعة اللاحقة.</p>
+          <button class="small-btn" id="reindexBtn" type="button" style="margin-bottom:8px">🔎 فهرسة الإعلانات القديمة للبحث</button>
+          <div id="aiAdminAlerts" class="admin-list"></div>
         </div>
         <div class="form-card">
           <h2>📢 كل الإعلانات</h2>
@@ -77,10 +81,6 @@
       </div>
       <div class="admin-columns" style="margin-top:16px">
         <div class="form-card">
-          <h2>📦 طلبات التوصيل</h2>
-          <div id="adminDeliveryRequests" class="admin-list"></div>
-        </div>
-        <div class="form-card">
           <h2>🚩 البلاغات</h2>
           <div id="adminReports" class="admin-list"></div>
         </div>
@@ -89,15 +89,19 @@
           <div id="adminPromotions" class="admin-list"></div>
         </div>
       </div>
-      <div class="admin-columns" style="margin-top:16px">
+      <div class="form-card" style="margin-top:16px">
+        <h2>📦 طلبات التوصيل</h2>
+        <div class="admin-filters">
+          <input type="search" id="adminDeliverySearch" placeholder="🔎 اسم، هاتف، ولاية، عنوان، عنوان الإعلان...">
+          <select id="adminDeliveryStatus"><option value="">كل الحالات</option><option value="pending">بانتظار الموافقة</option><option value="approved">تمت الموافقة</option><option value="assigned">معيّن</option><option value="picked_up">تم الاستلام</option><option value="delivering">في الطريق</option><option value="completed">تم التسليم</option><option value="rejected">مرفوض</option><option value="cancelled">ملغى</option></select>
+        </div>
+        <div id="adminDeliveryRequests" class="admin-list admin-wide-list"></div>
+      </div>
+      <div class="admin-columns" style="margin-top:16px;grid-template-columns:1fr">
         <div class="form-card">
           <h2>👤 إدارة المستخدمين</h2>
           <input type="search" id="adminUsersSearch" placeholder="🔎 بحث بالاسم أو الإيميل..." style="margin-bottom:10px;width:100%">
           <div id="adminUsers" class="admin-list"></div>
-        </div>
-        <div class="form-card">
-          <h2>🤖 تنبيهات آلية</h2>
-          <div id="aiAdminAlerts" class="admin-list"></div>
         </div>
       </div>
     </div>
