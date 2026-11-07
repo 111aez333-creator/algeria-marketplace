@@ -4,7 +4,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js';
 import {
   getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc,
-  onSnapshot, serverTimestamp, writeBatch
+  onSnapshot, serverTimestamp, writeBatch, deleteField
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-app-check.js';
 import { firebaseConfig, appCheckSiteKey } from './firebase-config.js';
@@ -31,6 +31,11 @@ let listings = [], drivers = [], deliveryRequests = [], reports = [], allUsers =
 let unsub = {};
 let currentUser = null;
 let listingsSearch = '', usersSearch = '', deliverySearch = '', deliveryStatusFilter = '';
+
+async function notifyDeliveryParties(request, title, body) {
+  const recipients=[...new Set([request?.buyerUid,request?.driverUid].filter(uid=>uid&&uid!==currentUser?.uid))];
+  await Promise.allSettled(recipients.map(uid=>setDoc(doc(db,'notifications',`${request.id}_${request.status}_${uid}`),{toUserId:uid,fromUserId:currentUser.uid,type:'delivery_update',title,body:String(body||'').slice(0,180),deliveryRequestId:request.id,status:request.status,read:false,createdAt:serverTimestamp()})));
+}
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 function escapeHtml(s = '') { return String(s).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c])); }
@@ -272,10 +277,13 @@ async function assignDriver(reqId, driverId) {
     const d = drivers.find(x => x.id === driverId);
     if (!d || !d.ownerUid) { toast('بيانات الموصل ناقصة'); return; }
     // ننسخو الاسم والهاتف والفايسبوك للطلب باش يشوفهم المشتري
+    const req=deliveryRequests.find(x=>x.id===reqId);
     await updateDoc(doc(db, 'deliveryRequests', reqId), {
       driverId, driverUid: d.ownerUid, driverName: d.name || '', driverPhone: d.phone || '', driverFacebook: d.facebook || '',
       status: 'assigned', updatedAt: serverTimestamp()
     });
+    await setDoc(doc(db,'deliveryPool',reqId),{status:'closed'},{merge:true});
+    if(req)await notifyDeliveryParties({...req,driverUid:d.ownerUid,status:'assigned'},'تم تعيين موصّل لطلبك',`الموصّل ${d.name||''} تم تعيينه لطلب التوصيل.`);
     toast('تم تعيين الموصّل 🚚');
   } catch (e) { toast('تعذر تعيين الموصّل'); }
   finally { showLoading(false); }
@@ -285,6 +293,12 @@ async function updateDeliveryStatus(id, status) {
   showLoading(true);
   try {
     await updateDoc(doc(db, 'deliveryRequests', id), { status, updatedAt: serverTimestamp() });
+    const req=deliveryRequests.find(x=>x.id===id);
+    if(req){ // الطلبات المعتمدة تظهر للموصّلين فـ deliveryPool (بلا بيانات شخصية)
+      if(status==='approved')await setDoc(doc(db,'deliveryPool',id),{status:'open',listingTitle:req.listingTitle||'',wilaya:req.wilaya||'',city:req.city||'',createdAt:serverTimestamp()});
+      else await setDoc(doc(db,'deliveryPool',id),{status:'closed'},{merge:true});
+    }
+    if(req)await notifyDeliveryParties({...req,status},'تحديث حالة التوصيل',`الحالة الجديدة: ${status}`);
     toast('تم تحديث الحالة ✅');
   } catch (e) { toast('تعذر التحديث'); }
   finally { showLoading(false); }
@@ -363,6 +377,26 @@ $('#reindexBtn')?.addEventListener('click', async () => {
     }
     toast('تمت الفهرسة ✅');
   } catch (e) { console.error(e); toast('تعذرت الفهرسة'); }
+  finally { showLoading(false); }
+});
+
+$('#migratePhoneBtn')?.addEventListener('click', async () => {
+  const todo = listings.filter(l => 'phone' in l || 'showPhone' in l);
+  if (!todo.length) { toast('لا توجد أرقام قديمة ✅'); return; }
+  if (!confirm(`نقل أرقام ${todo.length} إعلان إلى وثائق خاصة؟`)) return;
+  showLoading(true);
+  try {
+    for (let i = 0; i < todo.length; i += 200) {
+      const b = writeBatch(db);
+      todo.slice(i, i + 200).forEach(l => {
+        const phone = String(l.phone || '').trim().slice(0, 20), show = !!l.showPhone;
+        b.set(doc(db, 'listings', l.id, 'private', 'contact'), { phone, showPhone: show, ownerUid: l.ownerUid || '' });
+        b.update(doc(db, 'listings', l.id), { phone: deleteField(), showPhone: deleteField(), hasPhone: !!phone && show });
+      });
+      await b.commit();
+    }
+    toast('تم نقل الأرقام ✅');
+  } catch (e) { console.error(e); toast('تعذر النقل'); }
   finally { showLoading(false); }
 });
 

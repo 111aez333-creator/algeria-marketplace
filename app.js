@@ -42,6 +42,8 @@ const wilayas = ['أدرار','الشلف','الأغواط','أم البواقي
 const SPAM_WORDS_BLOCK = ['نصب','مخدرات','سلاح','إباحي','scam','fake id','مسروق'];
 const SPAM_WORDS_FLAG = ['احتيال','ربح سريع','اربح المال','مضمون 100%','fast money','click here','اتصل الآن فقط','win money'];
 const URL_REGEX = /(https?:\/\/|www\.)\S+/gi;
+const LINK_RE = /(https?:\/\/|www\.|t\.me|bit\.ly|wa\.me|telegram\.me|tinyurl)/i;
+function hasLink(s){return LINK_RE.test(String(s||''));}
 
 function analyzeSpam(text){
   const t=String(text||'').toLowerCase();
@@ -84,17 +86,40 @@ function isDuplicatePost(title,ownerUid){
   });
 }
 
-let listings=[], drivers=[], favorites=[], conversations=[], blocked=[];
+let driverPool=[];
+let listings=[], drivers=[], favorites=[], conversations=[], blocked=[], notifications=[];
 let promotions=[], deliveryRequests=[], usersList=[];
 let currentUser=null, currentProfile=null;
 let isAdmin=false, myDriver=null, activeConversation=null;
 let unsub={};
+let suggestionTimer=null;
 let currentImages=[];
 let pendingLocation=null;
 let ratingTarget=null;
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
+// حصة الإجراءات (ترويج 3/يوم، طلب توصيل 10/يوم، فاصل 60 ثانية): القواعد هي اللي تفرضها فعلاً، وهنا نتأكدو قبل لتجنّب خطأ غامض.
+async function quotaFor(kind,max,refId){
+  const qref=doc(db,'actionQuota',currentUser.uid+'_'+kind),qs=await getDoc(qref),nowMs=Date.now();
+  let quota={count:1,windowStart:serverTimestamp()};
+  if(qs.exists()){
+    const q=qs.data(),lastMs=q.lastAt?.toMillis?.()||0,startMs=q.windowStart?.toMillis?.()||0;
+    if(nowMs-lastMs<60000){const e=new Error('quota-wait');e.quota='wait';e.secs=Math.ceil((60000-(nowMs-lastMs))/1000);throw e;}
+    if(nowMs-startMs<24*3600*1000){
+      if(q.count>=max){const e=new Error('quota-limit');e.quota='limit';throw e;}
+      quota={count:q.count+1,windowStart:q.windowStart};
+    }
+  }
+  quota.lastAt=serverTimestamp();quota.lastRefId=refId;
+  return {qref,quota};
+}
+function quotaMsg(err,fallback){
+  if(err?.quota==='wait')return `⏳ انتظر ${err.secs} ثانية قبل المحاولة من جديد.`;
+  if(err?.quota==='limit')return '🚫 وصلت الحد اليومي لهذا الإجراء. حاول غداً.';
+  if(err?.code==='permission-denied')return 'تعذر الإرسال: تأكد من الفاصل الزمني (60 ثانية) أو من حالة حسابك أو من خلو النص من الروابط.';
+  return fallback;
+}
 function escapeHtml(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function toast(t){const x=$('#toast');if(!x)return;x.textContent=t;x.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>x.classList.remove('show'),3000);}
 function formatPrice(v){return Number(v||0).toLocaleString('fr-DZ')+' دج';}
@@ -152,14 +177,63 @@ function selectOptions(){
   if(pw)pw.innerHTML='<option value="">اختار الولاية</option>'+all;
 }
 
+// ----- بحث محفوظ واقتراحات فورية -----
+function currentSearchSnapshot(){
+  const f=readFilters();
+  return {q:f.q,category:f.category,wilaya:f.wilaya,city:f.city,min:f.min||0,max:Number.isFinite(f.max)?f.max:'',delivery:f.delivery,verified:f.verified,condition:f.condition};
+}
+function renderSavedSearches(){
+  const el=$('#savedSearches');if(!el)return;
+  let items=[];try{items=JSON.parse(localStorage.getItem('souq_saved_searches')||'[]');}catch{}
+  el.innerHTML=items.length?'<b class="saved-search-label">عمليات محفوظة:</b>'+items.map((x,i)=>`<button type="button" class="saved-search-chip" data-saved-search="${i}">${escapeHtml(x.label||x.q||x.category||'بحث')} <span aria-hidden="true">×</span></button>`).join(''):'';
+  $$('#savedSearches [data-saved-search]').forEach(b=>b.onclick=()=>{
+    const i=Number(b.dataset.savedSearch);const item=items[i];if(!item)return;
+    $('#globalSearch').value=item.q||'';$('#filterCategory').value=item.category||'';$('#filterWilaya').value=item.wilaya||'';
+    $('#filterCity').value=item.city||'';$('#minPrice').value=item.min||'';$('#maxPrice').value=item.max||'';
+    $('#filterDelivery').checked=!!item.delivery;$('#filterVerified').checked=!!item.verified;$('#filterCondition').value=item.condition||'';
+    applyFilters();
+  });
+}
+function saveCurrentSearch(){
+  const item=currentSearchSnapshot();
+  if(!item.q&&!item.category&&!item.wilaya&&!item.city&&!item.min&&!item.max&&!item.delivery&&!item.verified&&!item.condition){toast('حدد كلمة أو فلتر قبل حفظ البحث.');return;}
+  let items=[];try{items=JSON.parse(localStorage.getItem('souq_saved_searches')||'[]');}catch{}
+  const key=JSON.stringify(item);if(items.some(x=>JSON.stringify(x)===key)){toast('هذا البحث محفوظ من قبل.');return;}
+  item.label=item.q||item.category||item.wilaya||item.city||'بحث مخصص';items.unshift(item);items=items.slice(0,8);
+  try{localStorage.setItem('souq_saved_searches',JSON.stringify(items));renderSavedSearches();toast('تم حفظ البحث على هذا الجهاز ✅');}catch{toast('تعذر حفظ البحث في المتصفح.');}
+}
+function renderSearchSuggestions(){
+  const input=$('#globalSearch'),box=$('#searchSuggestions');if(!input||!box)return;
+  const q=normalizeWord(input.value.trim());
+  if(q.length<2){box.hidden=true;input.setAttribute('aria-expanded','false');return;}
+  const matches=[...listingMap.values()].filter(x=>x.status==='published'&&isVisibleListing(x)&&normalizeWord(x.title||'').includes(q)).slice(0,6);
+  if(!matches.length){box.hidden=true;input.setAttribute('aria-expanded','false');return;}
+  box.innerHTML=matches.map(x=>`<button type="button" role="option" class="suggestion-item" data-suggest-id="${escapeHtml(x.id)}"><span>${escapeHtml(x.title)}</span><small>${formatPrice(x.price)} · ${escapeHtml(x.wilaya||'')}</small></button>`).join('');
+  box.hidden=false;input.setAttribute('aria-expanded','true');
+  $$('#searchSuggestions [data-suggest-id]').forEach(b=>b.onclick=()=>{box.hidden=true;input.setAttribute('aria-expanded','false');go('home');openListing(b.dataset.suggestId);});
+}
+function renderNotifications(){
+  const el=$('#notificationList');if(!el)return;
+  const unread=notifications.filter(n=>!n.read).length;
+  const badge=$('#notificationBadge');if(badge){badge.textContent=unread>99?'99+':String(unread);badge.hidden=!unread;}
+  if(!currentUser){el.innerHTML='<div class="empty small-empty">سجّل الدخول باش تشوف إشعاراتك.</div>';return;}
+  el.innerHTML=notifications.length?notifications.map(n=>`<button type="button" class="notification-item ${n.read?'is-read':'is-unread'}" data-notification="${escapeHtml(n.id)}"><b>${escapeHtml(n.title||'إشعار')}</b><span>${escapeHtml(n.body||'')}</span><small>${n.createdAt?.seconds?new Date(n.createdAt.seconds*1000).toLocaleString('ar-DZ'): 'الآن'}</small></button>`).join(''):'<div class="empty small-empty">ما عندك حتى إشعار حالياً.</div>';
+  $$('#notificationList [data-notification]').forEach(b=>b.onclick=async()=>{
+    const n=notifications.find(x=>x.id===b.dataset.notification);if(!n)return;
+    if(!n.read){try{await updateDoc(doc(db,'notifications',n.id),{read:true});}catch(e){console.warn('Notification read:',e);}}
+    if(n.conversationId){const c=conversations.find(x=>x.id===n.conversationId);const other=c?.participants?.find(uid=>uid!==currentUser.uid);if(other)openConversationWith(other,{id:c.listingId,title:c.listingTitle});}
+    else if(n.deliveryRequestId){go('tracking');renderTracking();}
+  });
+}
 function categoryCards(target){
   const el=$(target);if(!el)return;
   el.innerHTML=categories.map(([icon,name])=>`<button class="category" data-cat="${escapeHtml(name)}"><span class="icon">${icon}</span><b>${escapeHtml(name)}</b></button>`).join('');
   $$(target+' .category').forEach(b=>b.onclick=()=>{go('search');$('#filterCategory').value=b.dataset.cat;applyFilters();});
 }
 
+const BLANK_IMG='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 function cloudinaryUrl(url,w=800,h=600){
-  if(!url||!url.includes('res.cloudinary.com'))return url;
+  if(typeof url!=='string'||!url.startsWith('https://res.cloudinary.com/'+CLOUDINARY_CLOUD_NAME+'/'))return BLANK_IMG;
   return url.replace('/upload/',`/upload/f_auto,q_auto,w_${w},h_${h},c_limit/`);
 }
 
@@ -200,7 +274,7 @@ function initImageUpload(){
 
 function collectImageUrls(){
   const raw=$('#imageUrlInput')?.value||'';
-  const urls=raw.split(',').map(s=>s.trim()).filter(s=>/^https:\/\//i.test(s));
+  const urls=raw.split(',').map(s=>s.trim()).filter(s=>s.startsWith(`https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/`));
   return[...currentImages,...urls].slice(0,5);
 }
 
@@ -217,7 +291,7 @@ function card(x){
   const rating=x.ratingCount?(x.ratingSum/x.ratingCount).toFixed(1):null;
   return `<article class="listing" data-id="${escapeHtml(x.id)}"><div class="listing-img">
   ${img?`<img src="${escapeHtml(cloudinaryUrl(img,600,450))}" alt="${escapeHtml(x.title)}" loading="lazy">`:`<span>${escapeHtml(x.emoji||'🛍️')}</span>`}
-  <button class="heart ${active?'active':''}" data-fav="${escapeHtml(x.id)}">${active?'♥':'♡'}</button></div>
+  ${(x.images||[]).length>1?`<span class="img-count">📷 ${x.images.length}</span>`:''}<button class="heart ${active?'active':''}" data-fav="${escapeHtml(x.id)}">${active?'♥':'♡'}</button></div>
   <div class="listing-body"><div class="meta">${escapeHtml(x.condition||'متاح')} • ${escapeHtml(x.category)}</div>
   <div class="listing-title">${escapeHtml(x.title)}</div><div class="price">${formatPrice(x.price)}</div>
   <div class="meta">📍 ${escapeHtml(x.wilaya||'الجزائر')} • 👤 ${escapeHtml(x.seller||'بائع')}${x.sellerVerified?' <span class="verified">✓</span>':''}</div>
@@ -270,13 +344,14 @@ function buildKeywords({title,category,wilaya,city}){return tokenize(`${title} $
 // ---------- الرئيسية ----------
 async function loadHome(){
   try{
-    const snap=await getDocs(query(collection(db,'listings'),orderBy('createdAt','desc'),limit(12)));
+    const snap=await getDocs(query(collection(db,'listings'),where('status','==','published'),orderBy('createdAt','desc'),limit(12)));
     cacheListings(snap.docs);
     homeItems=snap.docs.map(d=>listingMap.get(d.id));
   }catch(e){handleQueryError(e);}
   homeLoaded=true;renderHome();
 }
 function renderHome(){
+  if(!promosLoaded&&!window._promoReq){window._promoReq=1;loadPromotions();}
   const el=$('#homeListings');if(!el)return;
   if(!homeLoaded){el.innerHTML='<div class="empty">جاري التحميل...</div>';return;}
   renderListings(homeItems.filter(isVisibleListing).slice(0,8),'#homeListings');
@@ -306,7 +381,7 @@ async function ensureListings(ids){
   const missing=ids.filter(id=>!listingMap.has(id)&&!goneIds.has(id));
   for(let i=0;i<missing.length;i+=10){
     const chunk=missing.slice(i,i+10);
-    const snap=await getDocs(query(collection(db,'listings'),where(documentId(),'in',chunk)));
+    const snap=await getDocs(query(collection(db,'listings'),where('status','==','published'),where(documentId(),'in',chunk)));
     cacheListings(snap.docs);
     chunk.forEach(id=>{if(!listingMap.has(id))goneIds.add(id);});
   }
@@ -347,7 +422,8 @@ function matchesFilters(x,f){
 }
 // فلتر واحد فقط يمشي للسيرفر (كلمة > قسم > ولاية)، والباقي نفلترو فالمتصفح على الصفحة المحمّلة
 function buildListingQuery(f,cursor){
-  const parts=[];
+  // Firestore Rules are not filters: every public search must explicitly request published ads.
+  const parts=[where('status','==','published')];
   if(f.tokens.length)parts.push(where('keywords','array-contains',[...f.tokens].sort((p,q)=>q.length-p.length)[0]));
   else if(f.category)parts.push(where('category','==',f.category));
   else if(f.wilaya)parts.push(where('wilaya','==',f.wilaya));
@@ -406,7 +482,7 @@ function applyFilters(){
 // ---------- سائقون وترويجات: نحمّلوهم بقراءات محدودة ----------
 async function loadDrivers(){
   try{
-    const s=await getDocs(query(collection(db,'drivers'),where('status','==','approved'),limit(40)));
+    const s=await getDocs(query(collection(db,'drivers'),where('status','==','approved'),where('verified','==',true),limit(40)));
     drivers=s.docs.map(d=>({id:d.id,...d.data()}));
   }catch(e){console.error(e);}
   renderDrivers();renderMyDriver();renderMyDriverDeliveries();renderTracking();renderMyDeliveries();handleDeepLink();
@@ -467,16 +543,13 @@ async function openListing(id){
   }
   const allImages=x.images?.length?x.images:(x.image?[x.image]:[]);
   const rating=x.ratingCount?(x.ratingSum/x.ratingCount).toFixed(1):null;
-  const gallery=allImages.length?
-    `<div class="gallery-main"><img src="${escapeHtml(cloudinaryUrl(allImages[0],1000,800))}" alt=""></div>
-     ${allImages.length>1?`<div class="image-preview-grid">${allImages.map(u=>`<div class="image-preview"><img src="${escapeHtml(cloudinaryUrl(u,200,200))}" alt=""></div>`).join('')}</div>`:''}`
-    : `<div class="gallery-main">🛍️</div>`;
+  const gallery=galleryHtml(allImages);
   $('#modalContent').innerHTML=`${gallery}
     <div class="meta">${escapeHtml(x.category)} • ${escapeHtml(x.condition)} • 👁️ ${x.views||0} مشاهدة ${rating?`• ⭐ ${rating} (${x.ratingCount})`:''}</div>
     <h2>${escapeHtml(x.title)}</h2><div class="detail-price">${formatPrice(x.price)}</div>
     <div class="meta">📍 ${escapeHtml(x.wilaya)}${x.city?(' - '+escapeHtml(x.city)):''} • 👤 ${escapeHtml(x.seller||'بائع')}${x.sellerVerified?' <span class="verified">✓</span>':''}</div>
     <p style="margin-top:10px;line-height:1.7">${escapeHtml(x.description||'')}</p>
-    ${x.showPhone&&x.phone?`<div class="phone-box"><b>📞 ${escapeHtml(x.phone)}</b></div>`:''}
+    <div id="phoneSlot"></div>
     <div class="notice">⚠️ سوق الجزائر وسيط فقط ولا يضمن المعاملات. لا تدفع مسبقاً، وتأكد من السلعة قبل الدفع.</div>
     ${x.status==='hidden'?'<div class="notice notice-warning">🙈 هذا الإعلان أخفته الإدارة بعد الفحص، ما يظهرش للعموم.</div>':''}
     <div class="detail-actions">
@@ -498,6 +571,50 @@ async function openListing(id){
   }
   $('#modalFavoriteBtn').onclick=()=>toggleFavorite(x.id);
   $('#listingModal').hidden=false;
+  loadListingPhone(x);
+  $$('#modalContent .gal').forEach(g=>initSlider(g));
+}
+
+function phoneHtml(p){const e=escapeHtml(p);return `<div class="phone-box"><b>📞 ${e}</b> <a class="small-btn" href="tel:${e}">اتصال</a> <a class="small-btn success" target="_blank" rel="noopener" href="${escapeHtml(waLink(p))}">🟢 واتساب</a></div>`;}
+// الهاتف ما عادش فـ وثيقة الإعلان العامة: نجيبوه من وثيقة خاصة (للمسجّلين فقط)
+async function loadListingPhone(x){
+  const slot=$('#phoneSlot');if(!slot)return;
+  if(x.phone&&x.showPhone){slot.innerHTML=phoneHtml(x.phone);return;} // إعلانات قديمة قبل النقل
+  if(!x.hasPhone)return;
+  if(!currentUser){slot.innerHTML='<div class="notice">🔒 سجّل الدخول لعرض رقم الهاتف.</div>';return;}
+  try{const s=await getDoc(doc(db,'listings',x.id,'private','contact'));if(s.exists()&&s.data().phone&&s.data().showPhone)slot.innerHTML=phoneHtml(s.data().phone);}catch{}
+}
+
+
+// ---------- معرض الصور + السلايدر (سحب بالإصبع، أسهم، نقاط، مصغّرات) ----------
+function galleryHtml(imgs){
+  const n=imgs.length;if(!n)return'<div class="gallery-main">🛍️</div>';
+  return`<div class="gal"><div class="gal-track">${imgs.map(u=>`<div class="gal-slide"><img src="${escapeHtml(cloudinaryUrl(u,1000,800))}" alt="" loading="lazy"></div>`).join('')}</div>${n>1?`<button type="button" class="gal-btn gal-prev" aria-label="السابق">›</button><button type="button" class="gal-btn gal-next" aria-label="التالي">‹</button><span class="gal-count">1/${n}</span>`:''}</div>${n>1?`<div class="gal-thumbs">${imgs.map((u,i)=>`<button type="button" class="gal-thumb${i?'':' on'}"><img src="${escapeHtml(cloudinaryUrl(u,120,120))}" alt=""></button>`).join('')}</div>`:''}`;
+}
+function initSlider(root,auto=0){
+  const tr=root.querySelector('.gal-track');if(!tr)return;
+  const n=tr.children.length,cnt=root.querySelector('.gal-count'),dots=root.querySelectorAll('.gal-dot'),thumbs=root.parentNode.querySelectorAll('.gal-thumb');
+  const sign=getComputedStyle(root).direction==='rtl'?1:-1;let i=0,timer=null,x0=null;
+  const go=k=>{i=(k+n)%n;tr.style.transform=`translateX(${sign*i*100}%)`;if(cnt)cnt.textContent=`${i+1}/${n}`;dots.forEach((d,j)=>d.classList.toggle('on',j===i));thumbs.forEach((t,j)=>t.classList.toggle('on',j===i));};
+  const stop=()=>{clearInterval(timer);timer=null;};
+  const start=()=>{stop();if(auto&&n>1)timer=setInterval(()=>{if(!root.isConnected)return stop();go(i+1);},auto);};
+  const hit=(el,k)=>el?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();go(k());});
+  hit(root.querySelector('.gal-next'),()=>i+1);hit(root.querySelector('.gal-prev'),()=>i-1);
+  dots.forEach((d,j)=>hit(d,()=>j));thumbs.forEach((t,j)=>t.addEventListener('click',()=>go(j)));
+  root.addEventListener('touchstart',e=>{x0=e.touches[0].clientX;stop();},{passive:true});
+  root.addEventListener('touchend',e=>{if(x0!==null){const dx=e.changedTouches[0].clientX-x0;if(Math.abs(dx)>40)go(i+(dx*sign>0?1:-1));}x0=null;start();});
+  root.addEventListener('mouseenter',stop);root.addEventListener('mouseleave',start);start();
+}
+// ---------- الترويجات فـ المقدمة (شريط إعلانات متحرك) ----------
+function renderPromoHero(){
+  const el=$('#promoHero');if(!el)return;
+  const ps=promotions.filter(p=>p.status==='approved').sort((a,b)=>(b.image?1:0)-(a.image?1:0)).slice(0,8);
+  if(!ps.length){el.hidden=true;el.innerHTML='';return;}
+  const slide=p=>{const u=safeUrl(p.url),inner=`${p.image?`<img src="${escapeHtml(cloudinaryUrl(p.image,900,420))}" alt="">`:'<div class="promo-ph">📣</div>'}<div class="promo-cap"><span class="promo-badge">ترويج</span><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.type||'')}${p.wilaya?' • 📍 '+escapeHtml(p.wilaya):''}</small></div>`;
+    return u?`<a class="gal-slide promo-slide" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer sponsored">${inner}</a>`:`<div class="gal-slide promo-slide">${inner}</div>`;};
+  el.hidden=false;
+  el.innerHTML=`<div class="gal promo-gal"><div class="gal-track">${ps.map(slide).join('')}</div>${ps.length>1?`<button type="button" class="gal-btn gal-prev" aria-label="السابق">›</button><button type="button" class="gal-btn gal-next" aria-label="التالي">‹</button><div class="gal-dots">${ps.map((_,k)=>`<i class="gal-dot${k?'':' on'}"></i>`).join('')}</div>`:''}</div>`;
+  initSlider(el.firstElementChild,5000);
 }
 
 function closeModal(){$('#listingModal').hidden=true;}
@@ -510,6 +627,7 @@ async function submitListing(e){
   const images=collectImageUrls();
   const screen=screenListing({title,description:String(f.get('description')||''),price,phone:String(f.get('phone')||'').trim(),images});
   if(screen.blocked){toast('⚠️ المحتوى يحتوي على كلمات ممنوعة.');return;}
+  if(hasLink(title)||hasLink(String(f.get('description')||''))){toast('⚠️ ممنوع وضع روابط فـ العنوان أو الوصف.');return;}
   if(isDuplicatePost(title,currentUser.uid)){toast('⚠️ عندك إعلان بنفس العنوان نشرته قريب. تفادى التكرار.');return;}
   const flagged=screen.score>=40;
   const item={
@@ -518,8 +636,7 @@ async function submitListing(e){
     images,image:images[0]||'',emoji:'🛍️',
     seller:currentProfile?.displayName||currentUser.displayName||'بائع',
     sellerVerified:currentProfile?.verified||false,ownerUid:currentUser.uid,
-    description:String(f.get('description')||'').trim(),phone:String(f.get('phone')||'').trim(),
-    showPhone:f.get('showPhone')!==null,
+    description:String(f.get('description')||'').trim(),hasPhone:!!String(f.get('phone')||'').trim()&&f.get('showPhone')!==null,
     status:'published',
     flagged, flagReason:screen.reasons.join('، '), aiScore:screen.score,
     keywords:buildKeywords({title,category:f.get('category'),wilaya:f.get('wilaya'),city:f.get('city')}),
@@ -542,6 +659,7 @@ async function submitListing(e){
     quota.lastAt=serverTimestamp();quota.lastListingId=lref.id;
     const batch=writeBatch(db);
     batch.set(lref,item);
+    batch.set(doc(db,'listings',lref.id,'private','contact'),{phone:String(f.get('phone')||'').trim().slice(0,20),showPhone:f.get('showPhone')!==null,ownerUid:currentUser.uid});
     batch.set(qref,quota);
     await batch.commit();
     e.target.reset();currentImages=[];renderImagePreview();
@@ -549,7 +667,7 @@ async function submitListing(e){
     loadHome();loadMyListings(true);
     toast('تم نشر الإعلان مباشرة ✅');
     go('home');
-  }catch(err){toast(err.code==='permission-denied'?'تعذر النشر: تأكد من الفاصل الزمني (60 ثانية) أو من حالة حسابك.':'فشل نشر الإعلان: '+(err.code||err.message));}
+  }catch(err){toast(err.code==='permission-denied'?'تعذر النشر: تأكد من الفاصل الزمني (60 ثانية) أو من حالة حسابك أو من خلو النص من الروابط.':'فشل نشر الإعلان: '+(err.code||err.message));}
   finally{showLoading(false);}
 }
 
@@ -572,9 +690,7 @@ async function submitDriver(e){
   finally{showLoading(false);}
 }
 
-function driverCard(d,full=true){
-  const st=statusMeta(d);
-  const contact=full?`
+function driverActionsHtml(d){return`
     <div class="driver-phone"><a href="tel:${escapeHtml(d.phone||'')}">📞 ${escapeHtml(d.phone||'—')}</a></div>
     <div class="driver-actions">
       <a class="small-btn" href="tel:${escapeHtml(d.phone||'')}">📞 اتصال</a>
@@ -582,21 +698,102 @@ function driverCard(d,full=true){
       ${safeUrl(d.facebook)?`<a class="small-btn" target="_blank" rel="noopener noreferrer" href="${escapeHtml(safeUrl(d.facebook))}">🔵 فايسبوك</a>`:''}
       ${d.ownerUid&&d.ownerUid!==currentUser?.uid?`<button class="small-btn" data-driver-chat="${escapeHtml(d.id)}">💬 دردشة</button>`:''}
       <button class="small-btn" data-driver-share="${escapeHtml(d.id)}">🔗 مشاركة</button>
-    </div>`:'';
-  return`<article class="driver" id="driver-${escapeHtml(d.id)}"><div class="driver-head"><h3>${escapeHtml(d.name||'موصّل')} ${d.verified?'<span class="verified">✓</span>':''}</h3><span class="status-dot ${st.s}">${st.label}</span></div>
-    <div class="meta">🚗 ${escapeHtml(d.vehicle||'مركبة')} • 📍 ${escapeHtml(d.wilaya||'')}</div>
-    <div class="activity-label">🕒 ${escapeHtml(st.lastSeen)}</div>${contact}</article>`;
+    </div>`;}
+function driverNear(d){const w=$('#driverWilayaFilter')?.value||currentProfile?.wilaya||'';return !!w&&d.wilaya===w;}
+function driverAvg(d){return d.ratingCount?d.ratingSum/d.ratingCount:0;}
+function ratingChipHtml(d){
+  const n=d.ratingCount||0;
+  return n?`<span class="drv-rate">⭐ ${driverAvg(d).toFixed(1)} <small>(${n})</small></span>`:'<span class="drv-rate none">جديد • بدون تقييم</span>';
+}
+function driverCard(d){
+  const st=statusMeta(d),ini=escapeHtml((d.name||'م').trim().charAt(0));
+  return`<article class="driver driver-pro" id="driver-${escapeHtml(d.id)}" data-driver-open="${escapeHtml(d.id)}" tabindex="0" role="button" aria-label="${escapeHtml(d.name||'موصّل')}"><div class="driver-avatar ${st.s}">${ini}</div><div class="driver-info"><h3>${escapeHtml(d.name||'موصّل')} ${d.verified?'<span class="verified">✓</span>':''}</h3><div class="meta">🚗 ${escapeHtml(d.vehicle||'مركبة')} • 📍 ${escapeHtml(d.wilaya||'')}</div>${ratingChipHtml(d)}<div class="activity-label">🕒 ${escapeHtml(st.lastSeen)}</div></div><div class="driver-side"><span class="status-dot ${st.s}">${st.label}</span>${driverNear(d)?'<span class="near-badge">📍 الأقرب لك</span>':''}<span class="driver-more">التفاصيل ‹</span></div></article>`;
+}
+let openDriverId=null;
+function closeDriverModal(){const m=$('#driverModal');if(m)m.hidden=true;openDriverId=null;}
+function openDriverModal(id){
+  const d=drivers.find(z=>z.id===id);if(!d)return;
+  let m=$('#driverModal');
+  if(!m){m=document.createElement('div');m.id='driverModal';m.className='modal';m.hidden=true;
+    m.innerHTML='<div class="modal-backdrop" data-close></div><div class="modal-card modal-large"><button class="modal-close" data-close aria-label="إغلاق">×</button><div id="driverModalBody"></div></div>';
+    document.body.appendChild(m);
+    m.onclick=ev=>{
+      if(ev.target.closest('[data-close]')){closeDriverModal();return;}
+      const dd=drivers.find(z=>z.id===openDriverId);if(!dd)return;
+      if(ev.target.closest('[data-driver-chat]')){closeDriverModal();openConversationWith(dd.ownerUid,{id:'driver_'+dd.id,title:'🚚 موصّل: '+(dd.name||''),seller:dd.name});}
+      else if(ev.target.closest('[data-driver-share]'))shareLink({title:'موصّل على سوق الجزائر',text:`${dd.name} - موصّل فـ${dd.wilaya} 📞 ${dd.phone}`,url:driverUrl(dd.id)});
+      else if(ev.target.closest('[data-driver-rate]'))openDriverRating(dd.id);
+      else if(ev.target.closest('[data-driver-report]'))openReport('driver',dd.id);
+    };}
+  openDriverId=id;renderDriverModalBody(d);
+  m.hidden=false;loadDriverReviews(id);
+}
+function renderDriverModalBody(d){
+  const st=statusMeta(d),own=d.ownerUid===currentUser?.uid,n=d.ratingCount||0,avg=driverAvg(d),full=Math.round(avg);
+  const fact=(l,v)=>`<div><small>${l}</small><b>${v}</b></div>`;
+  $('#driverModalBody').innerHTML=`<div class="driver-hero"><div class="driver-avatar big ${st.s}">${escapeHtml((d.name||'م').trim().charAt(0))}</div><div><h2>${escapeHtml(d.name||'موصّل')} ${d.verified?'<span class="verified">✓</span>':''}</h2><span class="status-dot ${st.s}">${st.label}</span></div></div>
+    <div class="dm-rating">${n?`<b class="dm-score">${avg.toFixed(1)}</b><span class="stars">${'★'.repeat(full)}${'☆'.repeat(5-full)}</span><span class="meta">${n} تقييم</span>`:'<span class="meta">⭐ ما كاش تقييمات بعد</span>'}</div>
+    <div class="driver-facts">${fact('المركبة',escapeHtml(d.vehicle||'—'))}${fact('الولاية',escapeHtml(d.wilaya||'—'))}${fact('التوصيلات',escapeHtml(String(d.rides||0)))}${fact('التقييم',n?'⭐ '+avg.toFixed(1):'—')}</div>
+    <div class="activity-label">🕒 ${escapeHtml(st.lastSeen)}</div>${driverActionsHtml(d)}
+    ${own?'':'<div class="driver-actions"><button class="primary" data-driver-rate>⭐ قيّم هذا الموصّل</button><button class="small-btn" data-driver-report>🚩 تبليغ</button></div>'}
+    <div class="notice">⚠️ سوق الجزائر وسيط فقط. اتفق على السعر قبل التوصيل ولا تدفع مسبقاً.</div>
+    <h3 class="dm-sub">آراء الزبائن</h3>
+    <div id="driverReviews" class="review-list"><div class="empty small-empty">جاري التحميل...</div></div>`;
+}
+async function loadDriverReviews(id){
+  const el=$('#driverReviews');if(!el)return;
+  try{
+    const s=await getDocs(query(collection(db,'drivers',id,'reviews'),orderBy('createdAt','desc'),limit(20)));
+    if(openDriverId!==id)return;
+    const rows=s.docs.map(x=>x.data());
+    el.innerHTML=rows.length?rows.map(r=>{
+      const k=Math.max(1,Math.min(5,Number(r.rating)||1));
+      const dt=r.createdAt?.seconds?new Date(r.createdAt.seconds*1000).toLocaleDateString('ar-DZ'):'';
+      return`<div class="review"><div class="review-top"><b>${escapeHtml(r.raterName||'مستخدم')}</b><span class="stars">${'★'.repeat(k)}${'☆'.repeat(5-k)}</span></div>${r.comment?`<p>${escapeHtml(r.comment)}</p>`:''}<small class="muted">${escapeHtml(dt)}</small></div>`;
+    }).join(''):'<div class="empty small-empty">ما كاش آراء بعد. كون أول واحد يقيّم! ⭐</div>';
+  }catch(e){console.error(e);if(openDriverId===id)el.innerHTML='<div class="empty small-empty">تعذر تحميل الآراء.</div>';}
+}
+function openDriverRating(id){
+  if(!requireLogin())return;
+  const d=drivers.find(z=>z.id===id);
+  if(d&&d.ownerUid===currentUser.uid){toast('ما تقدرش تقيّم روحك');return;}
+  ratingTarget={kind:'driver',driverId:id};
+  $('#ratingTitle').textContent='⭐ تقييم الموصّل';
+  $('#ratingValue').value='';
+  $$('#starRating button').forEach(b=>b.classList.remove('active'));
+  $('#ratingModal').hidden=false;
+}
+async function submitDriverRating(val,comment,form){
+  const id=ratingTarget.driverId,d=drivers.find(z=>z.id===id);
+  if(!d)return;
+  try{
+    showLoading(true);
+    const b=writeBatch(db);
+    b.set(doc(db,'drivers',id,'reviews',currentUser.uid),{raterUid:currentUser.uid,raterName:currentProfile?.displayName||currentUser.displayName||'مستخدم',rating:val,comment,createdAt:serverTimestamp()});
+    b.update(doc(db,'drivers',id),{ratingSum:increment(val),ratingCount:increment(1)});
+    await b.commit();
+    d.ratingSum=(d.ratingSum||0)+val;d.ratingCount=(d.ratingCount||0)+1;
+    toast('شكراً على تقييمك ⭐');
+    $('#ratingModal').hidden=true;form.reset();
+    renderDrivers();
+    if(openDriverId===id){renderDriverModalBody(d);loadDriverReviews(id);}
+  }catch(err){
+    toast(err.code==='permission-denied'?'قيّمت هذا الموصّل من قبل ⭐':'تعذر إرسال التقييم');
+  }finally{showLoading(false);}
 }
 function renderDrivers(){
   const el=$('#driverGrid');if(!el)return;
-  const approved=drivers.filter(d=>d.status==='approved'&&d.verified);
-  el.innerHTML=approved.length?approved.map(d=>driverCard(d)).join(''):'<div class="empty">ما كاش موصلين حالياً.</div>';
-  el.onclick=ev=>{
-    const chat=ev.target.closest('[data-driver-chat]'),share=ev.target.closest('[data-driver-share]');
-    if(chat){const d=drivers.find(z=>z.id===chat.dataset.driverChat);if(d)openConversationWith(d.ownerUid,{id:'driver_'+d.id,title:'🚚 موصّل: '+(d.name||''),seller:d.name});}
-    if(share){const d=drivers.find(z=>z.id===share.dataset.driverShare);if(d)shareLink({title:'موصّل على سوق الجزائر',text:`${d.name} - موصّل فـ${d.wilaya} 📞 ${d.phone}`,url:driverUrl(d.id)});}
-  };
-  const homeEl=$('#homeDrivers');if(homeEl){const activeDrivers=approved.filter(d=>d.activityStatus==='active').slice(0,4);homeEl.innerHTML=activeDrivers.length?activeDrivers.map(d=>driverCard(d,false)).join(''):'<div class="empty">ما كاش موصلين نشطين.</div>';}
+  let f=$('#driverWilayaFilter');
+  if(!f){f=document.createElement('select');f.id='driverWilayaFilter';f.className='driver-filter';f.setAttribute('aria-label','ولايتك');
+    f.innerHTML='<option value="">📍 الأقرب إليّ (حسب ولايتي)</option>'+wilayas.map(w=>`<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+    el.parentNode.insertBefore(f,el);f.onchange=renderDrivers;}
+  const score=d=>(driverNear(d)?2:0)+(d.activityStatus==='active'?1:0);
+  const approved=drivers.filter(d=>d.status==='approved'&&d.verified).sort((x,y)=>score(y)-score(x)||driverAvg(y)-driverAvg(x));
+  el.innerHTML=approved.length?approved.map(driverCard).join(''):'<div class="empty">ما كاش موصلين حالياً.</div>';
+  const open=ev=>{const c=ev.target.closest('[data-driver-open]');if(c)openDriverModal(c.dataset.driverOpen);};
+  el.onclick=open;el.onkeydown=ev=>{if(ev.key==='Enter'&&ev.target.dataset?.driverOpen)openDriverModal(ev.target.dataset.driverOpen);};
+  const homeEl=$('#homeDrivers');
+  if(homeEl){const act=approved.filter(d=>d.activityStatus==='active').slice(0,4);homeEl.innerHTML=act.length?act.map(driverCard).join(''):'<div class="empty">ما كاش موصلين نشطين.</div>';homeEl.onclick=open;}
 }
 
 async function setDriverStatus(status){
@@ -625,7 +822,7 @@ async function submitReport(e){
   e.preventDefault();if(!requireLogin())return;
   if(!cdCheck('report',20000,'⏳ انتظر شوية قبل بلاغ جديد.'))return;
   try{
-    await addDoc(collection(db,'reports'),{reporterUid:currentUser.uid,reporterName:currentProfile?.displayName||currentUser.displayName||'مستخدم',targetType:$('#reportTargetType').value,targetId:$('#reportTargetId').value,reason:$('#reportReason').value,details:$('#reportDetails').value.trim(),status:'open',createdAt:serverTimestamp()});
+    await setDoc(doc(db,'reports',currentUser.uid+'_'+$('#reportTargetType').value+'_'+$('#reportTargetId').value),{reporterUid:currentUser.uid,reporterName:currentProfile?.displayName||currentUser.displayName||'مستخدم',targetType:$('#reportTargetType').value,targetId:$('#reportTargetId').value,reason:$('#reportReason').value,details:$('#reportDetails').value.trim(),status:'open',createdAt:serverTimestamp()});
     toast('تم إرسال البلاغ 🚩');closeReport();e.target.reset();
   }catch(e){toast('تعذر إرسال البلاغ');}
 }
@@ -640,19 +837,22 @@ async function submitPromotion(e){
   if(!cdCheck('promo',60000,'⏳ انتظر دقيقة قبل ترويج جديد.'))return;
   const spam=analyzeSpam(String(f.get('name')||'')+' '+String(f.get('description')||''));
   if(spam.blocked){toast('⚠️ المحتوى يحتوي على كلمات ممنوعة.');return;}
+  if(hasLink(String(f.get('name')||''))||hasLink(String(f.get('description')||''))){toast('⚠️ ضع الرابط فـ خانة الرابط فقط، ماشي فـ الاسم أو الوصف.');return;}
   let imageUrl='';
   const file=$('#promoImageInput');
   try{
     showLoading(true);
     if(file?.files.length){imageUrl=await uploadImageToCloudinary(file.files[0],'souq-algeria/promotions');}
     const item={ownerUid:currentUser.uid,name:String(f.get('name')||'').trim(),type:f.get('type'),wilaya:f.get('wilaya'),url:safeUrl(String(f.get('url')||'').trim()),description:String(f.get('description')||'').trim(),image:imageUrl,status:'pending',createdAt:serverTimestamp()};
-    await addDoc(collection(db,'promotions'),item);
+    const pref=doc(collection(db,'promotions')),{qref:pqref,quota:pquota}=await quotaFor('promo',3,pref.id);
+    const pbatch=writeBatch(db);pbatch.set(pref,item);pbatch.set(pqref,pquota);await pbatch.commit();
     e.target.reset();toast('تم إرسال الترويج، بانتظار المراجعة 📣');
-  }catch(err){toast('فشل إرسال الترويج');}
+  }catch(err){toast(quotaMsg(err,'فشل إرسال الترويج'));}
   finally{showLoading(false);}
 }
 
 function renderPromotions(){
+  renderPromoHero();
   const el=$('#promoGrid');if(!el)return;
   const approved=promotions.filter(p=>p.status==='approved');
   el.innerHTML=approved.length?approved.map(p=>`<div class="promo-card">${p.image?`<img src="${escapeHtml(cloudinaryUrl(p.image,200,200))}" alt="">`:'📣'}<h3>${escapeHtml(p.name)}</h3><div class="meta">${escapeHtml(p.type)}</div>${safeUrl(p.url)?`<a href="${escapeHtml(safeUrl(p.url))}" target="_blank" rel="noopener noreferrer">زيارة الرابط ↗</a>`:''}</div>`).join(''):'<div class="empty">ما كاش ترويجات بعد.</div>';
@@ -729,10 +929,12 @@ function initDeliveryRequestForm(){
         location:pendingLocation, driverId:null,
         status:'pending', createdAt:serverTimestamp(), updatedAt:serverTimestamp()
       };
-      await addDoc(collection(db,'deliveryRequests'),item);
+      const requestRef=doc(collection(db,'deliveryRequests')),{qref:dqref,quota:dquota}=await quotaFor('delivery',10,requestRef.id);
+      const dbatch=writeBatch(db);dbatch.set(requestRef,item);dbatch.set(dqref,dquota);await dbatch.commit();
+      try{await setDoc(doc(db,'notifications',requestRef.id+'_seller'),{toUserId:listing.ownerUid,fromUserId:currentUser.uid,type:'delivery',title:'طلب توصيل جديد',body:`طلب توصيل لإعلان: ${listing.title}`.slice(0,180),deliveryRequestId:requestRef.id,read:false,createdAt:serverTimestamp()});}catch(notifyError){console.warn('Delivery notification:',notifyError);}
       closeDeliveryRequest();closeModal();
       toast('تم إرسال طلب التوصيل، الإدارة بصدد مراجعته 🚚');
-    }catch(err){toast(err.message||'فشل إرسال طلب التوصيل');}
+    }catch(err){toast(quotaMsg(err,'فشل إرسال طلب التوصيل'));}
     finally{showLoading(false);}
   });
 }
@@ -851,7 +1053,7 @@ function renderMyDriverDeliveries(){
   const el=$('#myDriverDeliveriesList');if(!el)return;
   if(!myDriver||myDriver.status!=='approved'){$('#myDriverDeliveriesCard').hidden=true;return;}
   const mine=deliveryRequests.filter(r=>r.driverUid===currentUser?.uid);
-  $('#myDriverDeliveriesCard').hidden=!mine.length;
+  $('#myDriverDeliveriesCard').hidden=!mine.length&&!driverPool.length;
   el.innerHTML=mine.map(r=>`<div class="tracking-item"><b>${escapeHtml(r.listingTitle)}</b><span class="tracking-status status-pending">${DELIVERY_STATUS_LABEL[r.status]||r.status}</span>
     <div class="admin-item-actions">
     ${r.status==='assigned'?`<button class="small-btn" data-driver-progress="${r.id}" data-next="picked_up">📦 استلمت الطرد</button>`:''}
@@ -859,6 +1061,20 @@ function renderMyDriverDeliveries(){
     ${r.status==='delivering'?`<button class="small-btn success" data-driver-progress="${r.id}" data-next="completed">✅ تم التسليم</button>`:''}
     </div></div>`).join('');
   $$('[data-driver-progress]').forEach(b=>b.onclick=()=>updateDeliveryStatus(b.dataset.driverProgress,b.dataset.next));
+  let pl=$('#driverPoolList');
+  if(!pl){pl=document.createElement('div');pl.id='driverPoolList';pl.className='tracking-list driver-pool';el.parentNode.insertBefore(pl,el);}
+  const pool=[...driverPool].sort((x,y)=>(y.wilaya===myDriver.wilaya)-(x.wilaya===myDriver.wilaya));
+  pl.innerHTML=pool.length?`<h3 class="pool-title">📥 طلبات متاحة (${pool.length})</h3>`+pool.map(p=>`<div class="tracking-item pool-item"><b>${escapeHtml(p.listingTitle||'طلب توصيل')}</b><div class="meta">📍 ${escapeHtml(p.wilaya||'')}${p.city?' - '+escapeHtml(p.city):''}${p.wilaya===myDriver.wilaya?' <span class="near-badge">فـ ولايتك</span>':''}</div><button class="small-btn success" data-pool-accept="${escapeHtml(p.id)}">✅ قبول الطلب</button></div>`).join(''):'';
+  $$('[data-pool-accept]').forEach(b=>b.onclick=()=>acceptPoolRequest(b.dataset.poolAccept));
+}
+async function acceptPoolRequest(id){
+  if(!myDriver||myDriver.status!=='approved'||!myDriver.verified)return;
+  try{
+    const b=writeBatch(db);
+    b.update(doc(db,'deliveryRequests',id),{driverId:myDriver.id,driverUid:currentUser.uid,status:'assigned',updatedAt:serverTimestamp()});
+    b.update(doc(db,'deliveryPool',id),{status:'taken',takenBy:currentUser.uid});
+    await b.commit();toast('تم قبول الطلب ✅ المشتري يقدر يراسلك الآن.');
+  }catch(e){console.warn(e);toast('الطلب مأخوذ من موصّل آخر أو تغيّر.');}
 }
 
 async function updateDeliveryStatus(id,status){
@@ -888,12 +1104,18 @@ async function openConversationWith(otherUid,listing){
 async function sendMessage(e){
   e.preventDefault();if(!activeConversation||!requireLogin())return;
   const text=$('#chatInput').value.trim();if(!text)return;
-  if(!cdCheck('msg',1500,'⏳ رويدك شوية قبل الرسالة الجاية.'))return;
+  if(!cdCheck('msg',2500,'⏳ رويدك شوية قبل الرسالة الجاية.'))return;
   const spam=analyzeSpam(text);
   if(spam.blocked){toast('⚠️ الرسالة تحتوي محتوى ممنوع.');return;}
   try{
-    await addDoc(collection(db,'conversations',activeConversation.id,'messages'),{senderUid:currentUser.uid,text,createdAt:serverTimestamp()});
-    await updateDoc(doc(db,'conversations',activeConversation.id),{lastMessage:text,updatedAt:serverTimestamp()});
+    const batch=writeBatch(db);
+    const messageRef=doc(collection(db,'conversations',activeConversation.id,'messages'));
+    batch.set(messageRef,{senderUid:currentUser.uid,text,createdAt:serverTimestamp()});
+    batch.set(doc(db,'msgThrottle',currentUser.uid),{lastAt:serverTimestamp()});
+    batch.update(doc(db,'conversations',activeConversation.id),{lastMessage:text,updatedAt:serverTimestamp()});
+    const notificationRef=doc(db,'notifications','message_'+messageRef.id);
+    batch.set(notificationRef,{toUserId:activeConversation.otherUid,fromUserId:currentUser.uid,type:'message',title:'رسالة جديدة',body:text.slice(0,150),conversationId:activeConversation.id,messageId:messageRef.id,read:false,createdAt:serverTimestamp()});
+    await batch.commit();
     $('#chatInput').value='';
   }catch(e){toast(e.code==='permission-denied'?'ما تقدرش تراسل هذا المستخدم.':'تعذر إرسال الرسالة');}
 }
@@ -915,6 +1137,7 @@ async function unblockUser(uid){
 function openRating(sellerUid,listingId){
   if(!requireLogin())return;
   ratingTarget={sellerUid,listingId};
+  $('#ratingTitle').textContent='⭐ تقييم البائع';
   $('#ratingTargetUid').value=sellerUid;
   $('#ratingTargetId').value=listingId;
   $('#ratingValue').value='';
@@ -932,6 +1155,8 @@ function initRatingForm(){
     const val=Number($('#ratingValue').value);
     if(!val){toast('اختار عدد النجوم أولاً');return;}
     const comment=$('#ratingForm [name=comment]').value.trim();
+    if(hasLink(comment)){toast('⚠️ ممنوع وضع روابط فـ التعليق.');return;}
+    if(ratingTarget.kind==='driver'){await submitDriverRating(val,comment,e.target);return;}
     try{
       // FIX: معرّف ثابت (raterUid_listingId) بدل معرّف عشوائي، حتى لو حاول نفس المستخدم
       // يقيّم نفس الإعلان مرة ثانية، تولي العملية "update" ماشي "create"، وقواعد الأمان
@@ -974,13 +1199,14 @@ async function handleDeepLink(){
     }catch(e){console.error(e);}
     finally{deepLinkBusy=false;}
   }else if(view==='driver'&&drivers.some(d=>d.id===id)){
-    deepLink=null;go('delivery');setTimeout(()=>document.getElementById('driver-'+id)?.scrollIntoView({behavior:'smooth',block:'center'}),200);
+    deepLink=null;go('delivery');openDriverModal(id);
   }
 }
 function renderAll(){
   renderHome();
   renderFavorites();
   renderDrivers();
+  renderNotifications();
   $('#favBadge').textContent=favorites.length;
   $('#favBadge').hidden=!favorites.length;
   if($('#searchView').classList.contains('active'))renderSearch();
@@ -1015,6 +1241,9 @@ function subscribeMine(){
     if(myDriver?.id!==prevId)subscribeDriverDeliveries();
   },e=>console.error(e));
 
+  if(unsub.notifications)unsub.notifications();
+  unsub.notifications=onSnapshot(query(collection(db,'notifications'),where('toUserId','==',currentUser.uid),orderBy('createdAt','desc'),limit(30)),s=>{notifications=s.docs.map(d=>({id:d.id,...d.data()}));renderNotifications();},e=>{console.warn('Notifications:',e);});
+
   if(unsub.conversations)unsub.conversations();
   unsub.conversations=onSnapshot(query(collection(db,'conversations'),where('participants','array-contains',currentUser.uid)),s=>{
     conversations=s.docs.map(d=>({id:d.id,...d.data()}));
@@ -1037,6 +1266,10 @@ function subscribeMine(){
 }
 
 function subscribeDriverDeliveries(){
+  if(unsub.driverPool){unsub.driverPool();unsub.driverPool=null;}driverPool=[];
+  if(myDriver?.status==='approved'&&myDriver.verified){
+    unsub.driverPool=onSnapshot(query(collection(db,'deliveryPool'),where('status','==','open'),limit(30)),s=>{driverPool=s.docs.map(d=>({id:d.id,...d.data()}));renderMyDriverDeliveries();},e=>console.warn('Pool:',e));
+  }
   if(unsub.driverDeliveries)unsub.driverDeliveries();
   if(!myDriver?.id){myDriverDeliveriesRaw=[];mergeDeliveryRequests();return;}
   unsub.driverDeliveries=onSnapshot(query(collection(db,'deliveryRequests'),where('driverUid','==',currentUser.uid)),s=>{
@@ -1049,18 +1282,25 @@ async function renderProfile(uid){
   const el=$('#profileListings');if(!el)return;
   el.innerHTML='<div class="empty">جاري التحميل...</div>';
   try{
-    const snap=await getDocs(query(collection(db,'listings'),where('ownerUid','==',uid),limit(60)));
+    const snap=await getDocs(query(collection(db,'listings'),where('status','==','published'),where('ownerUid','==',uid),limit(60)));
     cacheListings(snap.docs);
     const items=snap.docs.map(d=>listingMap.get(d.id)).sort((p,q)=>(q.createdAt?.seconds||0)-(p.createdAt?.seconds||0));
     const name=items[0]?.seller||'مستخدم';
     $('#profileName').textContent=name;$('#profileDisplayName').textContent=name;
+    $('#profileMeta').textContent=items[0]?.createdAt?.seconds?`عضو منذ ${new Date(items[0].createdAt.seconds*1000).toLocaleDateString('ar-DZ')}`:'بائع في سوق الجزائر';
+    const totalRatings=items.reduce((n,x)=>n+(Number(x.ratingCount)||0),0);
+    const totalRatingSum=items.reduce((n,x)=>n+(Number(x.ratingSum)||0),0);
+    const averageRating=totalRatings?(totalRatingSum/totalRatings).toFixed(1):'جديد';
+    $('#profileStats').innerHTML=`<span>📢 ${items.length} إعلان منشور</span><span>⭐ ${averageRating} (${totalRatings} تقييم)</span>`;
     renderListings(items.filter(isVisibleListing),'#profileListings');
   }catch(e){handleQueryError(e);}
 }
 
 $$('[data-view]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.view)));
-$('#globalSearch').addEventListener('input',()=>{go('search');applyFilters();$('#clearSearch').hidden=!$('#globalSearch').value;});
-$('#clearSearch')?.addEventListener('click',()=>{$('#globalSearch').value='';$('#clearSearch').hidden=true;applyFilters();});
+$('#globalSearch').addEventListener('input',()=>{go('search');applyFilters();$('#clearSearch').hidden=!$('#globalSearch').value;clearTimeout(suggestionTimer);suggestionTimer=setTimeout(renderSearchSuggestions,140);});
+$('#clearSearch')?.addEventListener('click',()=>{$('#globalSearch').value='';$('#clearSearch').hidden=true;$('#searchSuggestions').hidden=true;applyFilters();});
+$('#saveSearchBtn')?.addEventListener('click',saveCurrentSearch);
+renderSavedSearches();
 $('#heroSearchBtn').onclick=()=>{const q=$('#heroSearch').value.trim();$('#globalSearch').value=q;go('search');applyFilters();};
 $('#postForm').addEventListener('submit',submitListing);
 $('#driverForm').addEventListener('submit',submitDriver);
@@ -1077,6 +1317,11 @@ $$('[data-close-report]').forEach(x=>x.addEventListener('click',closeReport));
 $$('[data-close-rating]').forEach(x=>x.addEventListener('click',()=>{$('#ratingModal').hidden=true;}));
 $$('[data-close-deliveryreq]').forEach(x=>x.addEventListener('click',closeDeliveryRequest));
 $$('[data-close-terms]').forEach(x=>x.addEventListener('click',()=>{$('#termsModal').hidden=true;}));
+document.addEventListener('keydown',ev=>{
+  if(ev.key!=='Escape')return;
+  const open=[...$$('.modal')].filter(m=>!m.hidden).pop();
+  open?.querySelector('.modal-backdrop')?.click();
+});
 $('#resetFilters')?.addEventListener('click',()=>{
   $('#filterCategory').value='';$('#filterWilaya').value='';$('#filterCity').value='';
   $('#filterCondition').value='';$('#minPrice').value='';$('#maxPrice').value='';
@@ -1112,9 +1357,9 @@ onAuthStateChanged(auth,async user=>{
       subscribeMine();
     }catch(e){console.error(e);isAdmin=false;}
   }else{
-    currentProfile=null;isAdmin=false;favorites=[];blocked=[];conversations=[];myListings=[];myListingsLoaded=false;
+    currentProfile=null;isAdmin=false;favorites=[];blocked=[];conversations=[];notifications=[];myListings=[];myListingsLoaded=false;
     myDriver=null;myBuyerDeliveries=[];myDriverDeliveriesRaw=[];deliveryRequests=[];
-    ['myDriver','conversations','blocks','buyerDeliveries','driverDeliveries'].forEach(k=>{
+    ['myDriver','conversations','blocks','buyerDeliveries','driverDeliveries','notifications'].forEach(k=>{
       if(typeof unsub[k]==='function')unsub[k]();
       delete unsub[k];
     });

@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b7a75">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
   <meta name="description" content="سوق الجزائر — منصة جزائرية للبيع والشراء والخدمات والتوصيل.">
   <title>سوق الجزائر | بيع وشراء في الجزائر</title>
   <link rel="manifest" href="manifest.json">
@@ -27,13 +31,15 @@
 
       <div class="desktop-search">
         <span class="search-icon">⌕</span>
-        <input id="globalSearch" type="search" autocomplete="off" placeholder="وش راك تقلب؟ iPhone، PC، سيارة...">
-        <button id="clearSearch" class="clear-search" hidden>×</button>
+        <input id="globalSearch" type="search" autocomplete="off" aria-label="البحث في سوق الجزائر" aria-controls="searchSuggestions" aria-expanded="false" placeholder="وش راك تقلب؟ iPhone، PC، سيارة...">
+        <button id="clearSearch" class="clear-search" hidden aria-label="مسح البحث">×</button>
+        <div id="searchSuggestions" class="search-suggestions" role="listbox" hidden></div>
       </div>
 
       <div class="top-actions">
         <button class="icon-btn" id="darkModeToggle" title="وضع ليلي/نهاري" aria-label="تبديل الوضع الليلي">🌙</button>
         <button class="icon-btn" data-view="favorites" aria-label="المفضلة">♡<span id="favBadge" class="badge" hidden>0</span></button>
+        <button class="icon-btn notification-trigger" data-view="account" aria-label="الإشعارات">🔔<span id="notificationBadge" class="badge" hidden>0</span></button>
         <button class="sell-btn" data-view="post"><span>＋</span> نشر إعلان</button>
         <button class="account-btn" data-view="account" aria-label="حسابي">👤</button>
       </div>
@@ -42,6 +48,7 @@
 
   <main>
     <section id="homeView" class="view active">
+      <div id="promoHero" class="container promo-hero" hidden></div>
       <div class="container hero">
         <div class="hero-main">
           <div class="eyebrow-pill">🇩🇿 وسيط جزائري للبيع والشراء</div>
@@ -141,6 +148,7 @@
         <div class="results-area">
           <div class="results-toolbar">
             <span id="resultCount">0 إعلان</span>
+            <button id="saveSearchBtn" class="text-btn" type="button">＋ حفظ البحث</button>
             <select id="sortResults">
               <option value="new">الأحدث</option>
               <option value="low">السعر: من الأقل</option>
@@ -148,6 +156,7 @@
               <option value="views">الأكثر مشاهدة</option>
             </select>
           </div>
+          <div id="savedSearches" class="saved-searches" aria-label="عمليات البحث المحفوظة"></div>
           <div id="resultsGrid" class="listing-grid"></div>
           <div class="load-more-wrap"><button id="loadMoreBtn" class="secondary" type="button" hidden>عرض المزيد ↓</button></div>
         </div>
@@ -181,7 +190,6 @@
           <label>الوصف<textarea name="description" id="postDesc" required rows="5" maxlength="1500" placeholder="اكتب حالة المنتج، المواصفات والعيوب إن وجدت..."></textarea></label>
           <label>رفع صور متعددة (من الجهاز)<input type="file" id="imageFileInput" accept="image/jpeg,image/png,image/webp" multiple><small class="muted">JPG / PNG / WebP — حتى 5 صور، و8MB لكل صورة.</small></label>
           <div id="imagePreviewGrid" class="image-preview-grid"></div>
-          <label>أو روابط الصور <span class="muted">(اختياري)</span><input name="imageUrls" id="imageUrlInput" type="text" placeholder="https://... , https://..."></label>
         </div>
         <div class="form-section">
           <h3>التواصل والاستلام</h3>
@@ -284,6 +292,10 @@
             <button class="secondary" id="firebaseLogout" hidden>تسجيل الخروج</button>
           </div>
           <div id="firebaseState" class="notice">Firebase: جاري التحقق...</div>
+        </div>
+        <div class="form-card">
+          <h2>🔔 الإشعارات</h2>
+          <div id="notificationList" class="notification-list"><div class="empty small-empty">سجّل الدخول باش تشوف إشعاراتك.</div></div>
         </div>
         <div class="form-card">
           <h2>💬 الرسائل</h2>
@@ -433,7 +445,7 @@
     <div class="modal-backdrop" data-close-rating></div>
     <div class="modal-card">
       <button class="modal-close" data-close-rating>×</button>
-      <h2>⭐ تقييم البائع</h2>
+      <h2 id="ratingTitle">⭐ تقييم البائع</h2>
       <form id="ratingForm">
         <input type="hidden" id="ratingTargetUid">
         <input type="hidden" id="ratingTargetId">

@@ -1067,3 +1067,107 @@ button.full { width: 100%; }
 
 /* honeypot ضد البوتات: مخفي على الناس */
 .hp { position: absolute !important; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+
+/* Souq Algeria 2.0: search suggestions, saved searches and notifications */
+.desktop-search { position: relative; }
+.search-suggestions {
+  position: absolute; inset-inline: 0; top: calc(100% + 8px); z-index: 1200;
+  display: grid; gap: 4px; padding: 8px; border: 1px solid var(--border);
+  border-radius: 14px; background: var(--card-bg); box-shadow: var(--shadow-lg);
+  max-height: 340px; overflow: auto;
+}
+.search-suggestions[hidden] { display: none !important; }
+.suggestion-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:0; border-radius:9px; background:transparent; color:var(--text); text-align:right; cursor:pointer; }
+.suggestion-item:hover,.suggestion-item:focus-visible { background:var(--primary-light); outline:2px solid transparent; }
+.suggestion-item small { color:var(--muted); white-space:nowrap; }
+.saved-searches { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:10px 0 14px; }
+.saved-search-label { color:var(--muted); font-size:12px; }
+.saved-search-chip { border:1px solid var(--border); border-radius:999px; padding:5px 10px; background:var(--card-bg); color:var(--text); cursor:pointer; font-size:12px; }
+.saved-search-chip span { color:var(--muted); margin-inline-start:5px; }
+.notification-list { display:grid; gap:8px; }
+.notification-item { display:grid; gap:3px; width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--card-bg); color:var(--text); text-align:right; cursor:pointer; }
+.notification-item.is-unread { border-inline-start:4px solid var(--primary); background:var(--primary-light); }
+.notification-item span { font-size:13px; line-height:1.6; }
+.notification-item small { color:var(--muted); font-size:11px; }
+.notification-trigger { position:relative; }
+.notification-trigger .badge { position:absolute; top:-5px; inset-inline-end:-5px; }
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:3px solid color-mix(in srgb,var(--primary) 55%,transparent); outline-offset:2px; }
+@media (max-width:640px) { .saved-searches { gap:6px; } .suggestion-item { align-items:flex-start; flex-direction:column; gap:2px; } }
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+
+
+/* ===== تحسينات الهاتف ===== */
+html { -webkit-text-size-adjust:100%; -webkit-tap-highlight-color:transparent; }
+body { overscroll-behavior-y:none; }
+@media (max-width:768px) {
+  input, select, textarea { font-size:16px !important; min-height:46px; } /* يمنع تكبير iOS */
+  button, .small-btn, .text-btn { min-height:44px; touch-action:manipulation; }
+  .modal { align-items:flex-end; padding:0; }
+  .modal-card { width:100%; max-width:100% !important; max-height:92dvh; border-radius:20px 20px 0 0 !important; overflow-y:auto; overscroll-behavior:contain; padding-bottom:calc(16px + env(safe-area-inset-bottom)); animation:sheetUp .22s ease-out; }
+  .detail-actions { position:sticky; bottom:0; background:var(--card-bg); padding:10px 0 calc(6px + env(safe-area-inset-bottom)); margin-inline:-2px; z-index:2; }
+  .detail-actions button { min-width:calc(50% - 8px); }
+  .phone-box { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .toast { bottom:calc(76px + env(safe-area-inset-bottom)); max-width:92vw; }
+  .mobile-nav { padding-bottom:env(safe-area-inset-bottom); }
+  body { padding-bottom:calc(72px + env(safe-area-inset-bottom)); }
+}
+@keyframes sheetUp { from { transform:translateY(40px); opacity:.6; } to { transform:none; opacity:1; } }
+@media (hover:none) { button.primary:hover, button.secondary:hover { transform:none; } }
+
+
+/* ===== سلايدر الصور + شريط الترويج ===== */
+.gal{position:relative;overflow:hidden;border-radius:14px;background:var(--border);touch-action:pan-y}
+.gal-track{display:flex;transition:transform .35s ease}
+.gal-slide{flex:0 0 100%;min-width:0;aspect-ratio:4/3;display:block;position:relative}
+.gal-slide img{width:100%;height:100%;object-fit:cover;display:block}
+.gal-btn{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.45);color:#fff;font-size:24px;line-height:1;cursor:pointer;z-index:2;padding:0}
+.gal-prev{right:8px}.gal-next{left:8px}
+.gal-count{position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;padding:2px 9px;border-radius:99px;z-index:2}
+.gal-dots{position:absolute;bottom:8px;inset-inline:0;display:flex;justify-content:center;gap:6px;z-index:2}
+.gal-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.55);cursor:pointer}
+.gal-dot.on{background:#fff;width:20px;border-radius:99px}
+.gal-thumbs{display:flex;gap:8px;overflow-x:auto;margin:8px 0}
+.gal-thumb{flex:0 0 64px;height:64px;padding:0;border:2px solid transparent;border-radius:10px;overflow:hidden;background:none;opacity:.7;cursor:pointer}
+.gal-thumb.on{border-color:var(--primary);opacity:1}.gal-thumb img{width:100%;height:100%;object-fit:cover}
+.img-count{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:2px 8px;border-radius:99px}
+.promo-hero{padding-top:14px}.promo-gal{box-shadow:var(--shadow)}
+.promo-slide{aspect-ratio:21/9;color:#fff;text-decoration:none}
+.promo-ph{display:flex;align-items:center;justify-content:center;height:100%;font-size:56px;background:linear-gradient(135deg,var(--primary),#054f4b)}
+.promo-cap{position:absolute;inset:auto 0 0 0;padding:28px 16px 30px;background:linear-gradient(transparent,rgba(0,0,0,.72));display:flex;flex-direction:column;gap:2px}
+.promo-cap b{font-size:18px}.promo-cap small{opacity:.9}
+.promo-badge{align-self:flex-start;background:#f5b301;color:#222;font-size:11px;font-weight:800;padding:2px 9px;border-radius:99px}
+@media (max-width:640px){.promo-slide{aspect-ratio:16/9}.gal-btn{width:34px;height:34px}}
+/* ===== الموصّلون ===== */
+.driver-filter{width:100%;margin-bottom:12px}
+.driver-pro{display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer;transition:box-shadow .15s,transform .15s}
+.driver-pro:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.driver-avatar{flex:0 0 48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#fff;background:var(--primary)}
+.driver-avatar.big{flex-basis:64px;height:64px;font-size:28px}
+.driver-info{flex:1;min-width:0}.driver-info h3{margin:0 0 2px;font-size:16px}
+.driver-side{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.near-badge{background:var(--primary-light);color:var(--primary);font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
+.driver-more{font-size:12px;color:var(--primary);font-weight:700}
+.driver-hero{display:flex;align-items:center;gap:14px;margin-bottom:12px}.driver-hero h2{margin:0 0 4px}
+.driver-facts{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
+.driver-facts div{background:var(--primary-light);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.driver-facts small{color:var(--muted,#666);font-size:12px}
+.pool-title{margin:0 0 8px;font-size:16px}.pool-item{border:1px dashed var(--primary)}
+
+
+/* ===== 2.4: تقييم الموصّلين + آراء الزبائن ===== */
+.drv-rate { display: inline-block; font-weight: 800; font-size: 13px; color: #b45309; margin: 2px 0; }
+.drv-rate small { color: var(--muted); font-weight: 600; }
+.drv-rate.none { color: var(--muted); font-weight: 600; font-size: 12px; }
+.dm-rating { display: flex; align-items: center; gap: 10px; margin: 6px 0 12px; font-weight: 800; flex-wrap: wrap; }
+.dm-score { font-size: 30px; color: var(--primary); }
+.stars { color: #fbbf24; letter-spacing: 2px; }
+.dm-sub { margin: 18px 0 8px; font-size: 16px; }
+.review-list { display: grid; gap: 10px; }
+.review { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+.review-top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.review p { font-size: 14px; line-height: 1.6; }
+/* نقطة الحالة كانت رمادية دايماً: الكلاسات active/busy/offline */
+.status-dot.active::before { background: var(--success); }
+.status-dot.busy::before { background: var(--warning); }
+.status-dot.offline::before { background: var(--muted); }
