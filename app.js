@@ -250,7 +250,7 @@ function initImageUpload(){
 
 function collectImageUrls(){
   const raw=$('#imageUrlInput')?.value||'';
-  const urls=raw.split(',').map(s=>s.trim()).filter(s=>s.startsWith(`https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/`));
+  const urls=raw.split(',').map(s=>s.trim()).filter(s=>/^https:\/\//i.test(s));
   return[...currentImages,...urls].slice(0,5);
 }
 
@@ -586,7 +586,7 @@ function renderPromoHero(){
   const el=$('#promoHero');if(!el)return;
   const ps=promotions.filter(p=>p.status==='approved').sort((a,b)=>(b.image?1:0)-(a.image?1:0)).slice(0,8);
   if(!ps.length){el.hidden=true;el.innerHTML='';return;}
-  const slide=p=>{const u=safeUrl(p.url),inner=`${p.image?`<img src="${escapeHtml(cloudinaryUrl(p.image,900,420))}" alt="">`:'<div class="promo-ph">📣</div>'}<div class="promo-cap"><span class="promo-badge">ترويج</span><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.type||'')}${p.wilaya?' • 📍 '+escapeHtml(p.wilaya):''}</small></div>`;
+  const slide=p=>{const u=safeUrl(p.url),inner=`${p.image?`<img src="${escapeHtml(cloudinaryUrl(p.image,900,420))}" alt="">`:'<div class="promo-ph">📣</div>'}<div class="promo-cap"><span class="promo-badge">إعلان ممول</span><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.type||'')}${p.wilaya?' • 📍 '+escapeHtml(p.wilaya):''}</small></div>`;
     return u?`<a class="gal-slide promo-slide" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer sponsored">${inner}</a>`:`<div class="gal-slide promo-slide">${inner}</div>`;};
   el.hidden=false;
   el.innerHTML=`<div class="gal promo-gal"><div class="gal-track">${ps.map(slide).join('')}</div>${ps.length>1?`<button type="button" class="gal-btn gal-prev" aria-label="السابق">›</button><button type="button" class="gal-btn gal-next" aria-label="التالي">‹</button><div class="gal-dots">${ps.map((_,k)=>`<i class="gal-dot${k?'':' on'}"></i>`).join('')}</div>`:''}</div>`;
@@ -675,17 +675,10 @@ function driverActionsHtml(d){return`
       <button class="small-btn" data-driver-share="${escapeHtml(d.id)}">🔗 مشاركة</button>
     </div>`;}
 function driverNear(d){const w=$('#driverWilayaFilter')?.value||currentProfile?.wilaya||'';return !!w&&d.wilaya===w;}
-function driverAvg(d){return d.ratingCount?d.ratingSum/d.ratingCount:0;}
-function ratingChipHtml(d){
-  const n=d.ratingCount||0;
-  return n?`<span class="drv-rate">⭐ ${driverAvg(d).toFixed(1)} <small>(${n})</small></span>`:'<span class="drv-rate none">جديد • بدون تقييم</span>';
-}
 function driverCard(d){
   const st=statusMeta(d),ini=escapeHtml((d.name||'م').trim().charAt(0));
-  return`<article class="driver driver-pro" id="driver-${escapeHtml(d.id)}" data-driver-open="${escapeHtml(d.id)}" tabindex="0" role="button" aria-label="${escapeHtml(d.name||'موصّل')}"><div class="driver-avatar ${st.s}">${ini}</div><div class="driver-info"><h3>${escapeHtml(d.name||'موصّل')} ${d.verified?'<span class="verified">✓</span>':''}</h3><div class="meta">🚗 ${escapeHtml(d.vehicle||'مركبة')} • 📍 ${escapeHtml(d.wilaya||'')}</div>${ratingChipHtml(d)}<div class="activity-label">🕒 ${escapeHtml(st.lastSeen)}</div></div><div class="driver-side"><span class="status-dot ${st.s}">${st.label}</span>${driverNear(d)?'<span class="near-badge">📍 الأقرب لك</span>':''}<span class="driver-more">التفاصيل ‹</span></div></article>`;
+  return`<article class="driver driver-pro" id="driver-${escapeHtml(d.id)}" data-driver-open="${escapeHtml(d.id)}" tabindex="0" role="button" aria-label="${escapeHtml(d.name||'موصّل')}"><div class="driver-avatar ${st.s}">${ini}</div><div class="driver-info"><h3>${escapeHtml(d.name||'موصّل')} ${d.verified?'<span class="verified">✓</span>':''}</h3><div class="meta">🚗 ${escapeHtml(d.vehicle||'مركبة')} • 📍 ${escapeHtml(d.wilaya||'')}</div><div class="activity-label">🕒 ${escapeHtml(st.lastSeen)}</div></div><div class="driver-side"><span class="status-dot ${st.s}">${st.label}</span>${driverNear(d)?'<span class="near-badge">📍 الأقرب لك</span>':''}<span class="driver-more">التفاصيل ‹</span></div></article>`;
 }
-let openDriverId=null;
-function closeDriverModal(){const m=$('#driverModal');if(m)m.hidden=true;openDriverId=null;}
 function openDriverModal(id){
   const d=drivers.find(z=>z.id===id);if(!d)return;
   let m=$('#driverModal');
@@ -693,68 +686,16 @@ function openDriverModal(id){
     m.innerHTML='<div class="modal-backdrop" data-close></div><div class="modal-card modal-large"><button class="modal-close" data-close aria-label="إغلاق">×</button><div id="driverModalBody"></div></div>';
     document.body.appendChild(m);
     m.onclick=ev=>{
-      if(ev.target.closest('[data-close]')){closeDriverModal();return;}
-      const dd=drivers.find(z=>z.id===openDriverId);if(!dd)return;
-      if(ev.target.closest('[data-driver-chat]')){closeDriverModal();openConversationWith(dd.ownerUid,{id:'driver_'+dd.id,title:'🚚 موصّل: '+(dd.name||''),seller:dd.name});}
-      else if(ev.target.closest('[data-driver-share]'))shareLink({title:'موصّل على سوق الجزائر',text:`${dd.name} - موصّل فـ${dd.wilaya} 📞 ${dd.phone}`,url:driverUrl(dd.id)});
-      else if(ev.target.closest('[data-driver-rate]'))openDriverRating(dd.id);
-      else if(ev.target.closest('[data-driver-report]'))openReport('driver',dd.id);
+      if(ev.target.closest('[data-close]')){m.hidden=true;return;}
+      const chat=ev.target.closest('[data-driver-chat]'),share=ev.target.closest('[data-driver-share]'),dd=drivers.find(z=>z.id===(chat||share)?.dataset.driverChat||z.id===share?.dataset.driverShare);
+      if(chat&&dd){m.hidden=true;openConversationWith(dd.ownerUid,{id:'driver_'+dd.id,title:'🚚 موصّل: '+(dd.name||''),seller:dd.name});}
+      if(share&&dd)shareLink({title:'موصّل على سوق الجزائر',text:`${dd.name} - موصّل فـ${dd.wilaya} 📞 ${dd.phone}`,url:driverUrl(dd.id)});
     };}
-  openDriverId=id;renderDriverModalBody(d);
-  m.hidden=false;loadDriverReviews(id);
-}
-function renderDriverModalBody(d){
-  const st=statusMeta(d),own=d.ownerUid===currentUser?.uid,n=d.ratingCount||0,avg=driverAvg(d),full=Math.round(avg);
-  const fact=(l,v)=>`<div><small>${l}</small><b>${v}</b></div>`;
+  const st=statusMeta(d),fact=(l,v)=>`<div><small>${l}</small><b>${v}</b></div>`;
   $('#driverModalBody').innerHTML=`<div class="driver-hero"><div class="driver-avatar big ${st.s}">${escapeHtml((d.name||'م').trim().charAt(0))}</div><div><h2>${escapeHtml(d.name||'موصّل')} ${d.verified?'<span class="verified">✓</span>':''}</h2><span class="status-dot ${st.s}">${st.label}</span></div></div>
-    <div class="dm-rating">${n?`<b class="dm-score">${avg.toFixed(1)}</b><span class="stars">${'★'.repeat(full)}${'☆'.repeat(5-full)}</span><span class="meta">${n} تقييم</span>`:'<span class="meta">⭐ ما كاش تقييمات بعد</span>'}</div>
-    <div class="driver-facts">${fact('المركبة',escapeHtml(d.vehicle||'—'))}${fact('الولاية',escapeHtml(d.wilaya||'—'))}${fact('التوصيلات',escapeHtml(String(d.rides||0)))}${fact('التقييم',n?'⭐ '+avg.toFixed(1):'—')}</div>
-    <div class="activity-label">🕒 ${escapeHtml(st.lastSeen)}</div>${driverActionsHtml(d)}
-    ${own?'':'<div class="driver-actions"><button class="primary" data-driver-rate>⭐ قيّم هذا الموصّل</button><button class="small-btn" data-driver-report>🚩 تبليغ</button></div>'}
-    <div class="notice">⚠️ سوق الجزائر وسيط فقط. اتفق على السعر قبل التوصيل ولا تدفع مسبقاً.</div>
-    <h3 class="dm-sub">آراء الزبائن</h3>
-    <div id="driverReviews" class="review-list"><div class="empty small-empty">جاري التحميل...</div></div>`;
-}
-async function loadDriverReviews(id){
-  const el=$('#driverReviews');if(!el)return;
-  try{
-    const s=await getDocs(query(collection(db,'drivers',id,'reviews'),orderBy('createdAt','desc'),limit(20)));
-    if(openDriverId!==id)return;
-    const rows=s.docs.map(x=>x.data());
-    el.innerHTML=rows.length?rows.map(r=>{
-      const k=Math.max(1,Math.min(5,Number(r.rating)||1));
-      const dt=r.createdAt?.seconds?new Date(r.createdAt.seconds*1000).toLocaleDateString('ar-DZ'):'';
-      return`<div class="review"><div class="review-top"><b>${escapeHtml(r.raterName||'مستخدم')}</b><span class="stars">${'★'.repeat(k)}${'☆'.repeat(5-k)}</span></div>${r.comment?`<p>${escapeHtml(r.comment)}</p>`:''}<small class="muted">${escapeHtml(dt)}</small></div>`;
-    }).join(''):'<div class="empty small-empty">ما كاش آراء بعد. كون أول واحد يقيّم! ⭐</div>';
-  }catch(e){console.error(e);if(openDriverId===id)el.innerHTML='<div class="empty small-empty">تعذر تحميل الآراء.</div>';}
-}
-function openDriverRating(id){
-  if(!requireLogin())return;
-  const d=drivers.find(z=>z.id===id);
-  if(d&&d.ownerUid===currentUser.uid){toast('ما تقدرش تقيّم روحك');return;}
-  ratingTarget={kind:'driver',driverId:id};
-  $('#ratingTitle').textContent='⭐ تقييم الموصّل';
-  $('#ratingValue').value='';
-  $$('#starRating button').forEach(b=>b.classList.remove('active'));
-  $('#ratingModal').hidden=false;
-}
-async function submitDriverRating(val,comment,form){
-  const id=ratingTarget.driverId,d=drivers.find(z=>z.id===id);
-  if(!d)return;
-  try{
-    showLoading(true);
-    const b=writeBatch(db);
-    b.set(doc(db,'drivers',id,'reviews',currentUser.uid),{raterUid:currentUser.uid,raterName:currentProfile?.displayName||currentUser.displayName||'مستخدم',rating:val,comment,createdAt:serverTimestamp()});
-    b.update(doc(db,'drivers',id),{ratingSum:increment(val),ratingCount:increment(1)});
-    await b.commit();
-    d.ratingSum=(d.ratingSum||0)+val;d.ratingCount=(d.ratingCount||0)+1;
-    toast('شكراً على تقييمك ⭐');
-    $('#ratingModal').hidden=true;form.reset();
-    renderDrivers();
-    if(openDriverId===id){renderDriverModalBody(d);loadDriverReviews(id);}
-  }catch(err){
-    toast(err.code==='permission-denied'?'قيّمت هذا الموصّل من قبل ⭐':'تعذر إرسال التقييم');
-  }finally{showLoading(false);}
+    <div class="driver-facts">${fact('المركبة',escapeHtml(d.vehicle||'—'))}${fact('الولاية',escapeHtml(d.wilaya||'—'))}${fact('التوصيلات',escapeHtml(String(d.rides||0)))}${fact('التقييم',d.rating?'⭐ '+escapeHtml(String(d.rating)):'—')}</div>
+    <div class="activity-label">🕒 ${escapeHtml(st.lastSeen)}</div>${driverActionsHtml(d)}`;
+  m.hidden=false;
 }
 function renderDrivers(){
   const el=$('#driverGrid');if(!el)return;
@@ -763,7 +704,7 @@ function renderDrivers(){
     f.innerHTML='<option value="">📍 الأقرب إليّ (حسب ولايتي)</option>'+wilayas.map(w=>`<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
     el.parentNode.insertBefore(f,el);f.onchange=renderDrivers;}
   const score=d=>(driverNear(d)?2:0)+(d.activityStatus==='active'?1:0);
-  const approved=drivers.filter(d=>d.status==='approved'&&d.verified).sort((x,y)=>score(y)-score(x)||driverAvg(y)-driverAvg(x));
+  const approved=drivers.filter(d=>d.status==='approved'&&d.verified).sort((x,y)=>score(y)-score(x));
   el.innerHTML=approved.length?approved.map(driverCard).join(''):'<div class="empty">ما كاش موصلين حالياً.</div>';
   const open=ev=>{const c=ev.target.closest('[data-driver-open]');if(c)openDriverModal(c.dataset.driverOpen);};
   el.onclick=open;el.onkeydown=ev=>{if(ev.key==='Enter'&&ev.target.dataset?.driverOpen)openDriverModal(ev.target.dataset.driverOpen);};
@@ -1109,7 +1050,6 @@ async function unblockUser(uid){
 function openRating(sellerUid,listingId){
   if(!requireLogin())return;
   ratingTarget={sellerUid,listingId};
-  $('#ratingTitle').textContent='⭐ تقييم البائع';
   $('#ratingTargetUid').value=sellerUid;
   $('#ratingTargetId').value=listingId;
   $('#ratingValue').value='';
@@ -1127,7 +1067,6 @@ function initRatingForm(){
     const val=Number($('#ratingValue').value);
     if(!val){toast('اختار عدد النجوم أولاً');return;}
     const comment=$('#ratingForm [name=comment]').value.trim();
-    if(ratingTarget.kind==='driver'){await submitDriverRating(val,comment,e.target);return;}
     try{
       // FIX: معرّف ثابت (raterUid_listingId) بدل معرّف عشوائي، حتى لو حاول نفس المستخدم
       // يقيّم نفس الإعلان مرة ثانية، تولي العملية "update" ماشي "create"، وقواعد الأمان
@@ -1170,7 +1109,7 @@ async function handleDeepLink(){
     }catch(e){console.error(e);}
     finally{deepLinkBusy=false;}
   }else if(view==='driver'&&drivers.some(d=>d.id===id)){
-    deepLink=null;go('delivery');openDriverModal(id);
+    deepLink=null;go('delivery');setTimeout(()=>document.getElementById('driver-'+id)?.scrollIntoView({behavior:'smooth',block:'center'}),200);
   }
 }
 function renderAll(){
@@ -1288,11 +1227,6 @@ $$('[data-close-report]').forEach(x=>x.addEventListener('click',closeReport));
 $$('[data-close-rating]').forEach(x=>x.addEventListener('click',()=>{$('#ratingModal').hidden=true;}));
 $$('[data-close-deliveryreq]').forEach(x=>x.addEventListener('click',closeDeliveryRequest));
 $$('[data-close-terms]').forEach(x=>x.addEventListener('click',()=>{$('#termsModal').hidden=true;}));
-document.addEventListener('keydown',ev=>{
-  if(ev.key!=='Escape')return;
-  const open=[...$$('.modal')].filter(m=>!m.hidden).pop();
-  open?.querySelector('.modal-backdrop')?.click();
-});
 $('#resetFilters')?.addEventListener('click',()=>{
   $('#filterCategory').value='';$('#filterWilaya').value='';$('#filterCity').value='';
   $('#filterCondition').value='';$('#minPrice').value='';$('#maxPrice').value='';

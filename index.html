@@ -190,6 +190,7 @@
           <label>الوصف<textarea name="description" id="postDesc" required rows="5" maxlength="1500" placeholder="اكتب حالة المنتج، المواصفات والعيوب إن وجدت..."></textarea></label>
           <label>رفع صور متعددة (من الجهاز)<input type="file" id="imageFileInput" accept="image/jpeg,image/png,image/webp" multiple><small class="muted">JPG / PNG / WebP — حتى 5 صور، و8MB لكل صورة.</small></label>
           <div id="imagePreviewGrid" class="image-preview-grid"></div>
+          <label>أو روابط الصور <span class="muted">(اختياري)</span><input name="imageUrls" id="imageUrlInput" type="text" placeholder="https://... , https://..."></label>
         </div>
         <div class="form-section">
           <h3>التواصل والاستلام</h3>
@@ -445,7 +446,7 @@
     <div class="modal-backdrop" data-close-rating></div>
     <div class="modal-card">
       <button class="modal-close" data-close-rating>×</button>
-      <h2 id="ratingTitle">⭐ تقييم البائع</h2>
+      <h2>⭐ تقييم البائع</h2>
       <form id="ratingForm">
         <input type="hidden" id="ratingTargetUid">
         <input type="hidden" id="ratingTargetId">
