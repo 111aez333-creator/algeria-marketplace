@@ -42,8 +42,6 @@ const wilayas = ['أدرار','الشلف','الأغواط','أم البواقي
 const SPAM_WORDS_BLOCK = ['نصب','مخدرات','سلاح','إباحي','scam','fake id','مسروق'];
 const SPAM_WORDS_FLAG = ['احتيال','ربح سريع','اربح المال','مضمون 100%','fast money','click here','اتصل الآن فقط','win money'];
 const URL_REGEX = /(https?:\/\/|www\.)\S+/gi;
-const LINK_RE = /(https?:\/\/|www\.|t\.me|bit\.ly|wa\.me|telegram\.me|tinyurl)/i;
-function hasLink(s){return LINK_RE.test(String(s||''));}
 
 function analyzeSpam(text){
   const t=String(text||'').toLowerCase();
@@ -99,27 +97,6 @@ let ratingTarget=null;
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
-// حصة الإجراءات (ترويج 3/يوم، طلب توصيل 10/يوم، فاصل 60 ثانية): القواعد هي اللي تفرضها فعلاً، وهنا نتأكدو قبل لتجنّب خطأ غامض.
-async function quotaFor(kind,max,refId){
-  const qref=doc(db,'actionQuota',currentUser.uid+'_'+kind),qs=await getDoc(qref),nowMs=Date.now();
-  let quota={count:1,windowStart:serverTimestamp()};
-  if(qs.exists()){
-    const q=qs.data(),lastMs=q.lastAt?.toMillis?.()||0,startMs=q.windowStart?.toMillis?.()||0;
-    if(nowMs-lastMs<60000){const e=new Error('quota-wait');e.quota='wait';e.secs=Math.ceil((60000-(nowMs-lastMs))/1000);throw e;}
-    if(nowMs-startMs<24*3600*1000){
-      if(q.count>=max){const e=new Error('quota-limit');e.quota='limit';throw e;}
-      quota={count:q.count+1,windowStart:q.windowStart};
-    }
-  }
-  quota.lastAt=serverTimestamp();quota.lastRefId=refId;
-  return {qref,quota};
-}
-function quotaMsg(err,fallback){
-  if(err?.quota==='wait')return `⏳ انتظر ${err.secs} ثانية قبل المحاولة من جديد.`;
-  if(err?.quota==='limit')return '🚫 وصلت الحد اليومي لهذا الإجراء. حاول غداً.';
-  if(err?.code==='permission-denied')return 'تعذر الإرسال: تأكد من الفاصل الزمني (60 ثانية) أو من حالة حسابك أو من خلو النص من الروابط.';
-  return fallback;
-}
 function escapeHtml(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function toast(t){const x=$('#toast');if(!x)return;x.textContent=t;x.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>x.classList.remove('show'),3000);}
 function formatPrice(v){return Number(v||0).toLocaleString('fr-DZ')+' دج';}
@@ -231,9 +208,8 @@ function categoryCards(target){
   $$(target+' .category').forEach(b=>b.onclick=()=>{go('search');$('#filterCategory').value=b.dataset.cat;applyFilters();});
 }
 
-const BLANK_IMG='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 function cloudinaryUrl(url,w=800,h=600){
-  if(typeof url!=='string'||!url.startsWith('https://res.cloudinary.com/'+CLOUDINARY_CLOUD_NAME+'/'))return BLANK_IMG;
+  if(!url||!url.includes('res.cloudinary.com'))return url;
   return url.replace('/upload/',`/upload/f_auto,q_auto,w_${w},h_${h},c_limit/`);
 }
 
@@ -627,7 +603,6 @@ async function submitListing(e){
   const images=collectImageUrls();
   const screen=screenListing({title,description:String(f.get('description')||''),price,phone:String(f.get('phone')||'').trim(),images});
   if(screen.blocked){toast('⚠️ المحتوى يحتوي على كلمات ممنوعة.');return;}
-  if(hasLink(title)||hasLink(String(f.get('description')||''))){toast('⚠️ ممنوع وضع روابط فـ العنوان أو الوصف.');return;}
   if(isDuplicatePost(title,currentUser.uid)){toast('⚠️ عندك إعلان بنفس العنوان نشرته قريب. تفادى التكرار.');return;}
   const flagged=screen.score>=40;
   const item={
@@ -667,7 +642,7 @@ async function submitListing(e){
     loadHome();loadMyListings(true);
     toast('تم نشر الإعلان مباشرة ✅');
     go('home');
-  }catch(err){toast(err.code==='permission-denied'?'تعذر النشر: تأكد من الفاصل الزمني (60 ثانية) أو من حالة حسابك أو من خلو النص من الروابط.':'فشل نشر الإعلان: '+(err.code||err.message));}
+  }catch(err){toast(err.code==='permission-denied'?'تعذر النشر: تأكد من الفاصل الزمني (60 ثانية) أو من حالة حسابك.':'فشل نشر الإعلان: '+(err.code||err.message));}
   finally{showLoading(false);}
 }
 
@@ -837,17 +812,15 @@ async function submitPromotion(e){
   if(!cdCheck('promo',60000,'⏳ انتظر دقيقة قبل ترويج جديد.'))return;
   const spam=analyzeSpam(String(f.get('name')||'')+' '+String(f.get('description')||''));
   if(spam.blocked){toast('⚠️ المحتوى يحتوي على كلمات ممنوعة.');return;}
-  if(hasLink(String(f.get('name')||''))||hasLink(String(f.get('description')||''))){toast('⚠️ ضع الرابط فـ خانة الرابط فقط، ماشي فـ الاسم أو الوصف.');return;}
   let imageUrl='';
   const file=$('#promoImageInput');
   try{
     showLoading(true);
     if(file?.files.length){imageUrl=await uploadImageToCloudinary(file.files[0],'souq-algeria/promotions');}
     const item={ownerUid:currentUser.uid,name:String(f.get('name')||'').trim(),type:f.get('type'),wilaya:f.get('wilaya'),url:safeUrl(String(f.get('url')||'').trim()),description:String(f.get('description')||'').trim(),image:imageUrl,status:'pending',createdAt:serverTimestamp()};
-    const pref=doc(collection(db,'promotions')),{qref:pqref,quota:pquota}=await quotaFor('promo',3,pref.id);
-    const pbatch=writeBatch(db);pbatch.set(pref,item);pbatch.set(pqref,pquota);await pbatch.commit();
+    await addDoc(collection(db,'promotions'),item);
     e.target.reset();toast('تم إرسال الترويج، بانتظار المراجعة 📣');
-  }catch(err){toast(quotaMsg(err,'فشل إرسال الترويج'));}
+  }catch(err){toast('فشل إرسال الترويج');}
   finally{showLoading(false);}
 }
 
@@ -929,12 +902,11 @@ function initDeliveryRequestForm(){
         location:pendingLocation, driverId:null,
         status:'pending', createdAt:serverTimestamp(), updatedAt:serverTimestamp()
       };
-      const requestRef=doc(collection(db,'deliveryRequests')),{qref:dqref,quota:dquota}=await quotaFor('delivery',10,requestRef.id);
-      const dbatch=writeBatch(db);dbatch.set(requestRef,item);dbatch.set(dqref,dquota);await dbatch.commit();
+      const requestRef=await addDoc(collection(db,'deliveryRequests'),item);
       try{await setDoc(doc(db,'notifications',requestRef.id+'_seller'),{toUserId:listing.ownerUid,fromUserId:currentUser.uid,type:'delivery',title:'طلب توصيل جديد',body:`طلب توصيل لإعلان: ${listing.title}`.slice(0,180),deliveryRequestId:requestRef.id,read:false,createdAt:serverTimestamp()});}catch(notifyError){console.warn('Delivery notification:',notifyError);}
       closeDeliveryRequest();closeModal();
       toast('تم إرسال طلب التوصيل، الإدارة بصدد مراجعته 🚚');
-    }catch(err){toast(quotaMsg(err,'فشل إرسال طلب التوصيل'));}
+    }catch(err){toast(err.message||'فشل إرسال طلب التوصيل');}
     finally{showLoading(false);}
   });
 }
@@ -1155,7 +1127,6 @@ function initRatingForm(){
     const val=Number($('#ratingValue').value);
     if(!val){toast('اختار عدد النجوم أولاً');return;}
     const comment=$('#ratingForm [name=comment]').value.trim();
-    if(hasLink(comment)){toast('⚠️ ممنوع وضع روابط فـ التعليق.');return;}
     if(ratingTarget.kind==='driver'){await submitDriverRating(val,comment,e.target);return;}
     try{
       // FIX: معرّف ثابت (raterUid_listingId) بدل معرّف عشوائي، حتى لو حاول نفس المستخدم
