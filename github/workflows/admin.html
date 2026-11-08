@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <!-- CSP: لو تعطّل تسجيل الدخول أو App Check، افتح Console (F12) وشوف "Refused to ..." وزيد الدومين المذكور؛ ولو حبيت توقفها امسح السطر التالي -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.google.com https://www.recaptcha.net; connect-src 'self' https://www.gstatic.com https://*.googleapis.com https://www.google.com https://www.recaptcha.net https://api.cloudinary.com; img-src 'self' data: blob: https://res.cloudinary.com https://*.googleusercontent.com https://www.gstatic.com https://www.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-src https://*.firebaseapp.com https://accounts.google.com https://www.google.com https://recaptcha.google.com https://www.recaptcha.net; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'; worker-src 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b7a75">
+  <meta name="robots" content="noindex, nofollow">
+  <title>لوحة الإدارة | سوق الجزائر</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script src="fonts.js" defer></script>
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"></noscript>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .admin-gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .admin-gate-card{max-width:380px;width:100%;text-align:center;background:var(--card-bg);border:1px solid var(--border);border-radius:16px;padding:32px 24px;box-shadow:var(--shadow)}
+    .admin-gate-icon{font-size:40px;margin-bottom:10px}
+    .admin-topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--card-bg)}
+    .admin-topbar b{font-size:18px}
+    .admin-wrap{padding:20px;max-width:1200px;margin:0 auto}
+    .denied-box{color:var(--danger)}
+  </style>
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="loadingOverlay" class="loading-overlay" hidden><div class="spinner"></div><span>جاري التحميل...</span></div>
+
+  <div id="gateView" class="admin-gate">
+    <div class="admin-gate-card">
+      <div class="admin-gate-icon">🛡️</div>
+      <h1>لوحة إدارة سوق الجزائر</h1>
+      <p class="muted">هاذي الصفحة خاصة بالمسؤول فقط. سجّل الدخول بحساب Google المصرّح له.</p>
+      <button class="primary large full" id="adminLoginBtn" style="margin-top:16px">تسجيل الدخول بـ Google</button>
+      <div id="gateStatus" class="notice" style="margin-top:14px">جاري التحقق...</div>
+    </div>
+  </div>
+
+  <div id="deniedView" class="admin-gate" hidden>
+    <div class="admin-gate-card">
+      <div class="admin-gate-icon">⛔</div>
+      <h1 class="denied-box">الدخول مرفوض</h1>
+      <p class="muted">هذا الحساب غير مصرّح له بالدخول إلى لوحة الإدارة.</p>
+      <button class="secondary large full" id="adminLogoutBtn" style="margin-top:16px">تسجيل الخروج</button>
+    </div>
+  </div>
+
+  <div id="dashboardView" hidden>
+    <div class="admin-topbar">
+      <b>🛡️ لوحة الإدارة</b>
+      <div style="display:flex;gap:10px;align-items:center">
+        <a href="index.html" class="text-btn">↩ الموقع الرئيسي</a>
+        <button class="secondary" id="dashLogoutBtn">تسجيل الخروج</button>
+      </div>
+    </div>
+    <div class="admin-wrap">
+      <div class="admin-grid">
+        <div class="stat"><span>إعلانات</span><b id="statListings">0</b></div>
+        <div class="stat"><span>موصّلون</span><b id="statDrivers">0</b></div>
+        <div class="stat"><span>بلاغات مفتوحة</span><b id="statReports">0</b></div>
+        <div class="stat"><span>طلبات توصيل</span><b id="statDeliveryRequests">0</b></div>
+        <div class="stat"><span>مستخدمون</span><b id="statUsers">0</b></div>
+        <div class="stat"><span>ترويجات</span><b id="statPromotions">0</b></div>
+        <div class="stat"><span>طلبات بانتظار المراجعة</span><b id="statPendingReview">0</b></div>
+        <div class="stat"><span>إعلانات مشبوهة (آلي)</span><b id="statFlagged">0</b></div>
+      </div>
+      <div class="admin-columns">
+        <div class="form-card">
+          <h2>🤖 الفحص الآلي للإعلانات</h2>
+          <p class="muted" style="font-size:12px">الإعلانات تُنشر مباشرة بعد فحص آلي. المشبوهة تظهر هنا للمراجعة اللاحقة.</p>
+          <button class="small-btn" id="reindexBtn" type="button" style="margin-bottom:8px">🔎 فهرسة الإعلانات القديمة للبحث</button>
+          <button class="small-btn" id="migratePhoneBtn" type="button" style="margin-bottom:8px">📞 نقل أرقام الهاتف القديمة لوثائق خاصة</button>
+          <div id="aiAdminAlerts" class="admin-list"></div>
+        </div>
+        <div class="form-card">
+          <h2>📢 كل الإعلانات</h2>
+          <input type="search" id="adminListingsSearch" placeholder="🔎 بحث بالعنوان أو الحالة..." style="margin-bottom:10px;width:100%">
+          <div id="adminListings" class="admin-list"></div>
+        </div>
+        <div class="form-card">
+          <h2>🚚 مراجعة الموصلين</h2>
+          <div id="adminDrivers" class="admin-list"></div>
+        </div>
+      </div>
+      <div class="admin-columns" style="margin-top:16px">
+        <div class="form-card">
+          <h2>🚩 البلاغات</h2>
+          <div id="adminReports" class="admin-list"></div>
+        </div>
+        <div class="form-card">
+          <h2>📣 مراجعة الترويجات</h2>
+          <div id="adminPromotions" class="admin-list"></div>
+        </div>
+      </div>
+      <div class="form-card" style="margin-top:16px">
+        <h2>📦 طلبات التوصيل</h2>
+        <div class="admin-filters">
+          <input type="search" id="adminDeliverySearch" placeholder="🔎 اسم، هاتف، ولاية، عنوان، عنوان الإعلان...">
+          <select id="adminDeliveryStatus"><option value="">كل الحالات</option><option value="pending">بانتظار الموافقة</option><option value="approved">تمت الموافقة</option><option value="assigned">معيّن</option><option value="picked_up">تم الاستلام</option><option value="delivering">في الطريق</option><option value="completed">تم التسليم</option><option value="rejected">مرفوض</option><option value="cancelled">ملغى</option></select>
+        </div>
+        <div id="adminDeliveryRequests" class="admin-list admin-wide-list"></div>
+      </div>
+      <div class="admin-columns" style="margin-top:16px;grid-template-columns:1fr">
+        <div class="form-card">
+          <h2>👤 إدارة المستخدمين</h2>
+          <input type="search" id="adminUsersSearch" placeholder="🔎 بحث بالاسم أو الإيميل..." style="margin-bottom:10px;width:100%">
+          <div id="adminUsers" class="admin-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <!-- CSP: لو تعطّل تسجيل الدخول أو App Check، افتح Console (F12) وشوف "Refused to ..." وزيد الدومين المذكور؛ ولو حبيت توقفها امسح السطر التالي -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.google.com https://www.recaptcha.net; connect-src 'self' https://www.gstatic.com https://*.googleapis.com https://www.google.com https://www.recaptcha.net https://api.cloudinary.com; img-src 'self' data: blob: https://res.cloudinary.com https://*.googleusercontent.com https://www.gstatic.com https://www.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-src https://*.firebaseapp.com https://accounts.google.com https://www.google.com https://recaptcha.google.com https://www.recaptcha.net; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'; worker-src 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b7a75">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="description" content="سوق الجزائر — منصة جزائرية للبيع والشراء والخدمات والتوصيل.">
+  <title>سوق الجزائر | بيع وشراء في الجزائر</title>
+  <link rel="canonical" href="https://111aez333-creator.github.io/algeria-marketplace/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="سوق الجزائر">
+  <meta property="og:locale" content="ar_DZ">
+  <meta property="og:title" content="سوق الجزائر | بيع وشراء في الجزائر">
+  <meta property="og:description" content="منصة جزائرية للبيع والشراء والخدمات والتوصيل. انشر إعلانك مجاناً.">
+  <meta property="og:url" content="https://111aez333-creator.github.io/algeria-marketplace/">
+  <meta property="og:image" content="https://111aez333-creator.github.io/algeria-marketplace/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"سوق الجزائر","url":"https://111aez333-creator.github.io/algeria-marketplace/","inLanguage":"ar"}</script>
+  <link rel="modulepreload" href="app.js">
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.17.1/firebase-app-check.js">
+  <link rel="modulepreload" href="firebase-config.js">
+  <link rel="preconnect" href="https://res.cloudinary.com">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://api.cloudinary.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script src="fonts.js" defer></script>
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"></noscript>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="loadingOverlay" class="loading-overlay" hidden><div class="spinner"></div><span>جاري التحميل...</span></div>
+
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <button class="brand" data-view="home" aria-label="سوق الجزائر">
+        <span class="brand-icon">س</span>
+        <span class="brand-copy"><strong>سوق الجزائر</strong><small>بيع وشراء بسهولة 🇩🇿</small></span>
+      </button>
+
+      <div class="desktop-search">
+        <span class="search-icon">⌕</span>
+        <input id="globalSearch" type="text" inputmode="search" enterkeyhint="search" autocomplete="off" aria-label="البحث في سوق الجزائر" role="combobox" aria-autocomplete="list" aria-controls="searchSuggestions" aria-expanded="false" placeholder="وش راك تقلب؟ iPhone، PC، سيارة...">
+        <button id="clearSearch" class="clear-search" hidden aria-label="مسح البحث">×</button>
+        <div id="searchSuggestions" class="search-suggestions" role="listbox" hidden></div>
+      </div>
+
+      <div class="top-actions">
+        <button class="icon-btn" id="darkModeToggle" title="وضع ليلي/نهاري" aria-label="تبديل الوضع الليلي">🌙</button>
+        <button class="icon-btn" data-view="favorites" aria-label="المفضلة">♡<span id="favBadge" class="badge" hidden>0</span></button>
+        <button class="icon-btn notification-trigger" data-view="account" aria-label="الإشعارات">🔔<span id="notificationBadge" class="badge" hidden>0</span></button>
+        <button class="sell-btn" data-view="post"><span>＋</span> نشر إعلان</button>
+        <button class="account-btn" data-view="account" aria-label="حسابي">👤</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="homeView" class="view active">
+      <div id="promoHero" class="container promo-hero" hidden></div>
+      <div class="container hero">
+        <div class="hero-main">
+          <div class="eyebrow-pill">🇩🇿 وسيط جزائري للبيع والشراء</div>
+          <h1>كل ما تحتاجه، <span>في سوق واحد.</span></h1>
+          <p>بيع، اشري، لقى الخدمات، واستعمل التوصيل مع موصّلين راجعتهم الإدارة.</p>
+          <div class="hero-search">
+            <span>⌕</span><input id="heroSearch" type="search" placeholder="ابحث عن منتج، سيارة، عقار أو خدمة...">
+            <button class="primary" id="heroSearchBtn">بحث</button>
+          </div>
+          <div class="quick-links">
+            <button data-query="هواتف">📱 هواتف</button>
+            <button data-query="حواسيب">💻 حواسيب</button>
+            <button data-query="سيارات">🚗 سيارات</button>
+            <button data-query="عقار">🏠 عقار</button>
+            <button data-query="أثاث">🪑 أثاث</button>
+            <button data-query="ملابس">👕 ملابس</button>
+          </div>
+        </div>
+        <div class="hero-trust">
+          <div class="trust-icon">🛡️</div>
+          <h2>نبنيو الثقة من البداية</h2>
+          <p>تقييمات، تبليغات، ومراجعة حسابات الموصّلين.</p>
+          <div class="trust-points"><span>✓ بلاغات فورية</span><span>✓ تقييمات</span><span>✓ موصّلون 18+</span></div>
+        </div>
+      </div>
+
+      <section class="container section categories-section">
+        <div class="section-head">
+          <div><div class="section-kicker">استكشف</div><h2>الأقسام</h2></div>
+          <button class="text-btn" data-view="categories">عرض الكل ←</button>
+        </div>
+        <div id="categoryGrid" class="category-grid"></div>
+      </section>
+
+      <section class="container section">
+        <div class="section-head">
+          <div><div class="section-kicker">الأحدث</div><h2>إعلانات جديدة</h2></div>
+          <button class="text-btn" data-view="search">كل الإعلانات ←</button>
+        </div>
+        <div id="homeListings" class="listing-grid"></div>
+      </section>
+
+      <div class="container section feature-strip">
+        <div class="feature-card">
+          <span>🚗</span>
+          <div><b>توصيل داخل الجزائر</b><small>اختار موصّل راجعته الإدارة وتواصل معاه مباشرة.</small></div>
+          <button data-view="delivery">اكتشف</button>
+        </div>
+        <div class="feature-card">
+          <span>🛡️</span>
+          <div><b>نظام ثقة</b><small>تبليغ، تقييمات ومراجعة للحسابات.</small></div>
+          <button data-view="account">حسابي</button>
+        </div>
+        <div class="feature-card">
+          <span>📣</span>
+          <div><b>الترويج المجاني</b><small>روّج متجرك أو مشروعك مجاناً.</small></div>
+          <button data-view="promotions">اكتشف</button>
+        </div>
+      </div>
+
+      <section class="container section">
+        <div class="section-head">
+          <div><div class="section-kicker">التوصيل</div><h2>موصّلون نشطون</h2></div>
+          <button class="text-btn" data-view="delivery">كل الموصلين ←</button>
+        </div>
+        <div id="homeDrivers" class="driver-grid"></div>
+      </section>
+    </section>
+
+    <section id="categoriesView" class="view container page-section">
+      <div class="page-heading">
+        <div class="section-kicker">تصفح</div>
+        <h1>كل الأقسام</h1>
+      </div>
+      <div id="allCategoryGrid" class="category-grid category-grid-large"></div>
+    </section>
+
+    <section id="searchView" class="view container page-section">
+      <div class="page-heading">
+        <div class="section-kicker">البحث</div>
+        <h1 id="searchTitle">كل الإعلانات</h1>
+      </div>
+      <div class="search-layout">
+        <aside class="filter-panel">
+          <div class="filter-head"><b>الفلاتر</b><button id="resetFilters" class="text-btn">مسح</button></div>
+          <label>القسم<select id="filterCategory"><option value="">كل الأقسام</option></select></label>
+          <label>الولاية<select id="filterWilaya"><option value="">كل الولايات</option></select></label>
+          <label>البلدية<input id="filterCity" type="text" placeholder="مثال: باب الزوار"></label>
+          <label>الحالة<select id="filterCondition"><option value="">الكل</option><option>جديد</option><option>مستعمل</option></select></label>
+          <div class="two-fields">
+            <label>من<input id="minPrice" type="number" min="0" placeholder="0"></label>
+            <label>إلى<input id="maxPrice" type="number" min="0" placeholder="بدون حد"></label>
+          </div>
+          <label class="switch-row"><input id="filterDelivery" type="checkbox"><span>توصيل متاح</span></label>
+          <label class="switch-row"><input id="filterVerified" type="checkbox"><span>بائع موثّق فقط</span></label>
+        </aside>
+        <div class="results-area">
+          <div class="results-toolbar">
+            <span id="resultCount">0 إعلان</span>
+            <button id="saveSearchBtn" class="text-btn" type="button">＋ حفظ البحث</button>
+            <select id="sortResults">
+              <option value="new">الأحدث</option>
+              <option value="low">السعر: من الأقل</option>
+              <option value="high">السعر: من الأعلى</option>
+              <option value="views">الأكثر مشاهدة</option>
+            </select>
+          </div>
+          <div id="savedSearches" class="saved-searches" role="group" aria-label="عمليات البحث المحفوظة"></div>
+          <div id="resultsGrid" class="listing-grid"></div>
+          <div class="load-more-wrap"><button id="loadMoreBtn" class="secondary" type="button" hidden>عرض المزيد ↓</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="postView" class="view container page-section narrow-page">
+      <div class="page-heading">
+        <div class="section-kicker">بيع</div>
+        <h1>نشر إعلان جديد</h1>
+      </div>
+      <form id="postForm" class="form-card">
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <div class="form-section">
+          <h2>معلومات المنتج</h2>
+          <div class="form-grid">
+            <label>عنوان الإعلان<input name="title" id="postTitle" required maxlength="90" placeholder="مثال: iPhone 13 128GB"></label>
+            <label>السعر بالدينار<input name="price" type="number" min="0" required placeholder="25000"></label>
+            <label>القسم<select name="category" id="postCategory" required><option value="">اختار القسم</option></select></label>
+            <label>الولاية<select name="wilaya" id="postWilaya" required><option value="">اختار الولاية</option></select></label>
+            <label>البلدية<input name="city" maxlength="60" placeholder="مثال: باب الزوار"></label>
+            <label>الحالة<select name="condition" required><option value="">اختار الحالة</option><option>مستعمل</option><option>جديد</option></select></label>
+          </div>
+          <div class="ai-suggestions" id="aiSuggestions" hidden>
+            <b>🤖 اقتراحات AI:</b>
+            <div class="ai-chips" id="aiChips"></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <h3>التفاصيل والصور</h3>
+          <label>الوصف<textarea name="description" id="postDesc" required rows="5" maxlength="1500" placeholder="اكتب حالة المنتج، المواصفات والعيوب إن وجدت..."></textarea></label>
+          <label>رفع صور متعددة (من الجهاز)<input type="file" id="imageFileInput" accept="image/jpeg,image/png,image/webp" multiple><small class="muted">JPG / PNG / WebP — حتى 5 صور، و8MB لكل صورة.</small></label>
+          <div id="imagePreviewGrid" class="image-preview-grid"></div>
+        </div>
+        <div class="form-section">
+          <h3>التواصل والاستلام</h3>
+          <div class="form-grid">
+            <label>رقم الهاتف<input name="phone" inputmode="tel" maxlength="30" placeholder="0550 12 34 56"></label>
+            <label>طريقة الاستلام<select name="delivery"><option>يد بيد</option><option>توصيل عبر موصّل</option><option>الاثنان</option></select></label>
+          </div>
+          <label class="switch-row">
+            <input name="showPhone" type="checkbox" checked>
+            <span>إظهار رقم الهاتف في الإعلان</span>
+          </label>
+        </div>
+        <div class="notice">🛡️ لا تضع رقم بطاقة التعريف أو كلمة السر أو أي معلومات حساسة داخل الإعلان.</div>
+        <button class="primary large full" type="submit">نشر الإعلان مجاناً</button>
+      </form>
+    </section>
+
+    <section id="deliveryView" class="view container page-section">
+      <div class="page-heading">
+        <div class="section-kicker">🚚 التوصيل</div>
+        <h1>الموصّلون</h1>
+      </div>
+      <div class="safety-banner">
+        <div><b>نظام نشاط الموصلين</b><p>🟢 نشط الآن • 🟠 مشغول • ⚫ غير متصل</p></div>
+        <span>🛡️</span>
+      </div>
+      <div id="myDriverStatus" class="form-card driver-status-panel" hidden></div>
+      <div id="driverGrid" class="driver-grid"></div>
+      <div class="form-card driver-form">
+        <div class="form-section">
+          <h2>حاب تخدم كموصّل؟</h2>
+          <p class="muted">التسجيل يرسل طلب مراجعة فقط. التفعيل النهائي للإدارة.</p>
+        </div>
+        <form id="driverForm">
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <div class="form-grid">
+            <label>الاسم واللقب<input name="name" required maxlength="80"></label>
+            <label>تاريخ الميلاد<input name="birth" type="date" required></label>
+            <label>رقم الهاتف<input name="phone" inputmode="tel" required maxlength="30"></label>
+            <label>الولاية<select name="wilaya" id="driverWilaya" required><option value="">اختار الولاية</option></select></label>
+            <label>نوع المركبة<select name="vehicle"><option>سيارة</option><option>دراجة نارية</option><option>شاحنة صغيرة</option></select></label>
+            <label>رقم المركبة <span class="muted">(اختياري)</span><input name="vehicleNumber" maxlength="30"></label>
+            <label>رابط فايسبوك <span class="muted">(اختياري)</span><input name="facebook" type="url" placeholder="https://facebook.com/..." maxlength="200"></label>
+          </div>
+          <div class="notice">📞 رقم هاتفك (وواتساب وفايسبوك إذا زدتو) يظهر للجميع باش يتواصلو معاك. تاريخ ميلادك يُستعمل فقط للتأكد أنك 18+ ولا يتم حفظه. الإدارة تراجع بياناتك الأساسية وتقبلك يدوياً، لكنها لا تضمن خدمتك ولا تتحمل مسؤولية التوصيل.</div>
+          <label class="check"><input name="adult" type="checkbox" required> أؤكد أن عمري 18 سنة أو أكثر.</label>
+          <label class="check"><input name="privacy" type="checkbox" required> أوافق على مراجعة بياناتي.</label>
+          <button class="primary" type="submit">إرسال طلب المراجعة</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="trackingView" class="view container page-section">
+      <div class="page-heading">
+        <div class="section-kicker">📦 التتبع</div>
+        <h1>طلبات التوصيل</h1>
+      </div>
+      <div id="trackingList" class="tracking-list"></div>
+    </section>
+
+    <section id="favoritesView" class="view container page-section">
+      <div class="page-heading">
+        <div class="section-kicker">محفوظ</div>
+        <h1>المفضلة</h1>
+      </div>
+      <div id="favoritesGrid" class="listing-grid"></div>
+    </section>
+
+    <section id="profileView" class="view container page-section">
+      <div class="page-heading">
+        <div class="section-kicker">الملف الشخصي</div>
+        <h1 id="profileName">مستخدم</h1>
+      </div>
+      <div class="profile-grid">
+        <div class="form-card account-card">
+          <div class="profile-placeholder" id="profileAvatar">👤</div>
+          <h2 id="profileDisplayName">مستخدم</h2>
+          <p class="muted" id="profileMeta">عضو منذ ...</p>
+          <div class="profile-stats" id="profileStats"></div>
+        </div>
+        <div class="form-card">
+          <h2>📢 إعلانات المستخدم</h2>
+          <div id="profileListings" class="listing-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="accountView" class="view container page-section">
+      <div class="page-heading">
+        <div class="section-kicker">حسابي</div>
+        <h1>الحساب والمحادثات</h1>
+      </div>
+      <div class="account-grid">
+        <div class="form-card account-card">
+          <div class="profile-placeholder" id="accountAvatar">👤</div>
+          <h2 id="accountName">زائر</h2>
+          <p class="muted" id="accountStatus">سجّل الدخول باش تنشر إعلانات وتحفظ المفضلة.</p>
+          <div class="account-actions">
+            <button class="primary" id="firebaseLogin">تسجيل الدخول بـ Google</button>
+            <button class="secondary" id="firebaseLogout" hidden>تسجيل الخروج</button>
+          </div>
+          <div id="firebaseState" class="notice">Firebase: جاري التحقق...</div>
+        </div>
+        <div class="form-card">
+          <h2>🔔 الإشعارات</h2>
+          <div id="notificationList" class="notification-list"><div class="empty small-empty">سجّل الدخول باش تشوف إشعاراتك.</div></div>
+        </div>
+        <div class="form-card">
+          <h2>💬 الرسائل</h2>
+          <div id="conversationList" class="conversation-list">
+            <div class="empty small-empty">سجّل الدخول باش تشوف محادثاتك.</div>
+          </div>
+        </div>
+        <div class="form-card">
+          <h2>🚫 الحسابات المحظورة</h2>
+          <div id="blockedList" class="blocked-list">
+            <div class="empty small-empty">ما كاش حسابات محظورة.</div>
+          </div>
+        </div>
+        <div class="form-card" id="myListingsCard" hidden>
+          <h2>📢 إعلاناتي</h2>
+          <div id="myListingsGrid" class="listing-grid"></div>
+        </div>
+        <div class="form-card" id="myDeliveriesCard" hidden>
+          <h2>📦 طلبات التوصيل (كمشتري)</h2>
+          <div id="myDeliveriesList" class="tracking-list"></div>
+        </div>
+        <div class="form-card" id="myDriverDeliveriesCard" hidden>
+          <h2>🚚 طلبات موكّلة لي (كموصّل)</h2>
+          <div id="myDriverDeliveriesList" class="tracking-list"></div>
+        </div>
+        <div class="form-card">
+          <button type="button" class="text-btn" id="openTermsBtn">📜 الشروط والخصوصية</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="promotionsView" class="view container page-section">
+      <div class="page-heading">
+        <div class="section-kicker">📣 الترويج</div>
+        <h1>ترويج مجاني للمشاريع</h1>
+      </div>
+      <div class="promo-grid" id="promoGrid"></div>
+      <div class="form-card" style="margin-top:24px">
+        <h2>أضف ترويجك مجاناً</h2>
+        <form id="promoForm">
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <div class="form-grid">
+            <label>اسم المتجر/المشروع<input name="name" required maxlength="80"></label>
+            <label>النوع<select name="type" required>
+              <option value="">اختار النوع</option>
+              <option>متجر إلكتروني</option>
+              <option>صفحة فيسبوك</option>
+              <option>موقع ويب</option>
+              <option>مشروع شخصي</option>
+              <option>خدمة</option>
+              <option>أخرى</option>
+            </select></label>
+            <label>الولاية<select name="wilaya" id="promoWilaya" required><option value="">اختار الولاية</option></select></label>
+            <label>رابط <span class="muted">(اختياري)</span><input name="url" type="url" placeholder="https://..."></label>
+          </div>
+          <label>الوصف<textarea name="description" required rows="3" maxlength="500" placeholder="اشرح مشروعك باختصار..."></textarea></label>
+          <label>رفع شعار/صورة <span class="muted">(اختياري)</span><input type="file" id="promoImageInput" accept="image/jpeg,image/png,image/webp"></label>
+          <button class="primary" type="submit">نشر الترويج</button>
+        </form>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="chatModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-chat></div>
+    <div class="modal-card chat-card">
+      <button class="modal-close" data-close-chat>×</button>
+      <div class="chat-header-row">
+        <div id="chatTitle" class="chat-title">💬 المحادثة</div>
+        <button type="button" id="blockUserBtn" class="text-btn danger-text">🚫 حظر</button>
+      </div>
+      <div id="chatMessages" class="chat-messages"></div>
+      <form id="chatForm" class="chat-form"><input id="chatInput" maxlength="1000" required placeholder="اكتب رسالة..."><button class="primary">إرسال</button></form>
+    </div>
+  </div>
+
+  <div id="deliveryRequestModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-deliveryreq></div>
+    <div class="modal-card">
+      <button class="modal-close" data-close-deliveryreq>×</button>
+      <h2>🚚 طلب توصيل</h2>
+      <p class="muted">الإدارة تراجع الطلب وتعيّن موصّل. اسمك وهاتفك وعنوانك يتشافو من الإدارة، والبائع، والموصّل المعيّن لطلبك.</p>
+      <form id="deliveryRequestForm">
+        <input type="hidden" id="deliveryReqListingId">
+        <div class="form-grid">
+          <label>الاسم الكامل<input name="fullName" required maxlength="80"></label>
+          <label>رقم الهاتف<input name="phone" inputmode="tel" required maxlength="30"></label>
+          <label>الولاية<select name="wilaya" id="deliveryReqWilaya" required><option value="">اختار الولاية</option></select></label>
+          <label>البلدية<input name="city" required maxlength="60"></label>
+        </div>
+        <label>العنوان بالتفصيل<textarea name="address" required rows="2" maxlength="300" placeholder="رقم المنزل، الحي، أقرب معلم..."></textarea></label>
+        <button type="button" id="useMyLocationBtn" class="secondary">📍 استعمل موقعي الحالي (اختياري)</button>
+        <div id="deliveryReqLocationLabel" class="muted" style="margin-top:6px;font-size:13px"></div>
+        <label class="check"><input name="confirm" type="checkbox" required> أؤكد صحة المعلومات وأوافق على مراجعتها من الإدارة ومشاركتها مع الموصّل المعيّن.</label>
+        <button class="primary large full" type="submit">إرسال طلب التوصيل</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="termsModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-terms></div>
+    <div class="modal-card">
+      <button class="modal-close" data-close-terms>×</button>
+      <h2>📜 الشروط والخصوصية</h2>
+      <div class="terms-body">
+        <p><b>وسيط فقط:</b> سوق الجزائر منصة للربط بين البائعين والمشترين والموصّلين. المنصة لا تبيع ولا تشتري ولا توصّل، ولا تضمن أي صفقة أو سلعة أو خدمة، ولا تتحمل مسؤولية ما يحدث بين المستخدمين.</p>
+        <p><b>مسؤوليتك:</b> أنت مسؤول عن التحقق من الطرف الآخر ومن السلعة قبل الدفع. ننصح بالمعاينة والدفع عند الاستلام وبعدم الدفع المسبق.</p>
+        <p><b>الخصوصية:</b> لا نطلب صور هوية. نحفظ فقط بيانات حسابك (الاسم، الإيميل، الهاتف، الولاية) وما تنشره. بيانات طلب التوصيل (الاسم، الهاتف، العنوان) تتشاف من الإدارة والبائع والموصّل المعيّن لهذا الطلب فقط. لا نبيع بياناتك، ولا نشاركها مع أطراف خارجية إلا بطلب قانوني.</p>
+        <p><b>الموصّلون:</b> الموصّلون مستقلون. الإدارة تراجع بياناتهم الأساسية وتقبلهم يدوياً، لكنها لا تضمن خدمتهم.</p>
+        <p><b>المحتوى الممنوع:</b> ممنوع نشر محتوى احتيالي، مخالف للقانون، أو مسيء. الإدارة تحتفظ بحق حذف أي إعلان أو حساب مخالف.</p>
+        <p><b>التبليغ:</b> يمكن لأي مستخدم التبليغ عن محتوى أو سلوك مخالف، وتتم المراجعة من طرف الإدارة.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="reportModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-report></div>
+    <div class="modal-card">
+      <button class="modal-close" data-close-report>×</button>
+      <h2>🚩 تبليغ</h2>
+      <form id="reportForm">
+        <input type="hidden" id="reportTargetId">
+        <input type="hidden" id="reportTargetType">
+        <label>السبب<select id="reportReason" required>
+          <option value="">اختار السبب</option>
+          <option>محتوى مخالف</option>
+          <option>احتيال أو معلومات مضللة</option>
+          <option>إعلان غير مناسب</option>
+          <option>سلوك مزعج</option>
+          <option>سبب آخر</option>
+        </select></label>
+        <label>التفاصيل<textarea id="reportDetails" maxlength="800" rows="4" placeholder="اختياري"></textarea></label>
+        <button class="primary full" type="submit">إرسال البلاغ</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="listingModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-card modal-large">
+      <button class="modal-close" data-close-modal>×</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <div id="ratingModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-rating></div>
+    <div class="modal-card">
+      <button class="modal-close" data-close-rating>×</button>
+      <h2 id="ratingTitle">⭐ تقييم البائع</h2>
+      <form id="ratingForm">
+        <input type="hidden" id="ratingTargetUid">
+        <input type="hidden" id="ratingTargetId">
+        <div class="star-rating" id="starRating">
+          <button type="button" data-star="1">★</button>
+          <button type="button" data-star="2">★</button>
+          <button type="button" data-star="3">★</button>
+          <button type="button" data-star="4">★</button>
+          <button type="button" data-star="5">★</button>
+        </div>
+        <input type="hidden" name="rating" id="ratingValue">
+        <label>تعليق <span class="muted">(اختياري)</span><textarea name="comment" maxlength="500" rows="3"></textarea></label>
+        <button class="primary full" type="submit">إرسال التقييم</button>
+      </form>
+    </div>
+  </div>
+
+  <nav class="mobile-nav" aria-label="التنقل الرئيسي">
+    <button data-view="home">⌂<span>الرئيسية</span></button>
+    <button data-view="search">⌕<span>بحث</span></button>
+    <button data-view="post" class="post-nav">＋</button>
+    <button data-view="favorites">♡<span>المفضلة</span></button>
+    <button data-view="account">👤<span>حسابي</span></button>
+  </nav>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
