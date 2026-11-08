@@ -72,24 +72,33 @@ firebase deploy --only hosting
 4. **الموقع:** ارفع كل الملفات على GitHub وحدّث بـ `Ctrl+Shift+R`.
 5. جرّب بحساب عادي: نشر إعلان، بحث بالكلمة وبالقسم، قيّم موصّل (تحتاج موصّل مقبول من الأدمن)، وشوف الإشعارات.
 
-## 2.5 (تحصين أمني شامل)
-**القواعد (`firestore.rules`)**
-- `noLinks` بـ `(?is)`: الفحص القديم `(?i).*` كان يتجاوزو سطر جديد فالعنوان. الوصف والتعليقات والترويجات صاروا بلا روابط كذلك.
-- **الترويجات:** حقول محددة (`hasOnly`) + حدود حجم + صورة Cloudinary فقط + حصة (3/يوم، فاصل 60 ث). القراءة العامة للمقبولة فقط.
-- **طلبات التوصيل:** حصة (10/يوم، فاصل 60 ث) عبر `actionQuota`، وعنوان الإعلان لازم يطابق الإعلان الحقيقي.
-- **المحادثات:** ما تتفتحش إلا حول إعلان حقيقي أو موصّل مقبول يملكه الطرف الآخر، والبادئ ماشي المالك (ما عاد تقدر تراسل uid عشوائي). الرسائل: حقول محددة، وتحديث المحادثة `lastMessage`/`updatedAt` فقط.
-- `users` و`drivers` و`blocks` و`viewers` و`reviews`: حقول محددة + حدود حجم + `createdAt` من السيرفر. الموصّل الجديد: `rides=0`، `rating=null`، `activityStatus='offline'`.
-- `flagReason`/`aiScore` لهم نوع وحدود.
-
-**الواجهة (`app.js`)**
-- `cloudinaryUrl` ما تعرض إلا صور Cloudinary الخاصة بنا.
-- الترويج وطلب التوصيل يتكتبو بـ batch مع `actionQuota`.
-- منع الروابط فالعنوان/الوصف/التعليق مع رسالة واضحة.
-- كاش SW نسخة `v18`.
-
-**الاستضافة (`firebase.json`)**: HSTS، Permissions-Policy، COOP `same-origin-allow-popups`، وCSP بوضع **Report-Only**.
-- بعد النشر افتح الموقع، جرّب تسجيل الدخول بـ Google ونشر إعلان، وشوف Console. إذا ما كانتش مخالفات CSP بدّل `Content-Security-Policy-Report-Only` إلى `Content-Security-Policy`.
-
-**ترتيب النشر:** الفهارس ← القواعد ← الموقع (مع بعض). `firestore.indexes.json` و`.firebaserc` سمّيهم بهاد الأسماء بالضبط (الملف `firebaserc.txt` هو نفسو `.firebaserc`).
-
-**حدود معروفة (تحتاج Cloud Functions / Blaze):** الفحص الآلي للإعلانات يبقى فالمتصفح (استشاري)، حدود معدّل الرسائل على مستوى السيرفر، وعناصر `keywords` ما تتفحّصش فالقواعد.
+## 2.5 (أمان إضافي بلا تكلفة + ظهور وسرعة)
+### أمان
+- **CSP** فـ `index.html` و`admin.html` (عبر `<meta>`، لأن GitHub Pages ما يسمحش بـ headers). إذا تعطّل تسجيل الدخول أو App Check: افتح Console (F12) وشوف رسالة `Refused to ...` وزِد الدومين المذكور فـ الـCSP. **للتراجع السريع:** امسح سطر `Content-Security-Policy` من الملفين. ما قدرتش نجرّب تسجيل Google الحقيقي وApp Check تحت الـCSP فـ بيئتي (جرّبتها بنسخ تجريبية فقط)، فجرّبهم بعد الرفع.
+- `firebase.json`: زدت Permissions-Policy وHSTS وCOOP (تخدم فقط إذا استعملت Firebase Hosting؛ على GitHub Pages ما تتطبّقش).
+- مجلدا `scripts/` و`.github/` مستثنيان من Firebase Hosting.
+### قائمة أمان تعملها أنت (خارج الكود)
+1. **App Check:** شوف Firebase Console ← App Check ← Metrics. إذا الطلبات **Verified** تقريباً كلها، فعّل **Enforce** لـ Firestore. لا تفعّلها قبل.
+2. **حساب الأدمن:** فعّل التحقق بخطوتين على `111aez333@gmail.com` (Google Account ← Security ← 2-Step Verification). هذا أهم إجراء، لأن هذا الحساب يتحكم فـ كلش.
+3. **Cloudinary:** فـ preset `Storedz` حدّد الصيغ (jpg/png/webp)، الحجم الأقصى، ومجلد الرفع، وفعّل Moderation إذا متاحة.
+4. **Firebase ← Authentication ← Settings ← Authorized domains:** خلّي فقط `111aez333-creator.github.io` (+ localhost إذا تحتاجو).
+5. **Google Cloud ← APIs & Services ← Credentials:** على الـAPI key، زِد قيد HTTP referrers: `https://111aez333-creator.github.io/*`.
+6. القواعد ما تتغيّرتش فـ 2.5: ما تحتاج تنشرها من جديد.
+### الظهور والسرعة (SEO)
+- **صفحات ثابتة لكل إعلان** (`/l/<id>.html`) فيها العنوان والسعر والصور وJSON-LD (Product) وOpen Graph: تعطي معاينة غنية فـ واتساب/فيسبوك وتسمح لجوجل يفهرس الإعلانات. **ما فيها هاتف أبداً.**
+- `sitemap.xml` و`robots.txt` تتولّد معاها. زر "مشاركة" فـ الإعلان صار يشارك الصفحة الثابتة.
+- `404.html`: إعلان جديد ما تولّدتش صفحتو بعد، يتحوّل تلقائياً للتطبيق.
+- **التوليد آلي** كل 6 ساعات عبر GitHub Action مجانية (`.github/workflows/seo.yml`). مرة وحدة:
+  1. ارفع الملفات (بما فيها مجلد `.github` و`scripts`). **مهم:** رفع مجلدات مخفية (`.github`) من واجهة الويب ممكن يحتاج سحب المجلد كامل أو إنشاء الملف يدوياً: Add file ← Create new file ← اكتب `.github/workflows/seo.yml` والصق المحتوى.
+  2. Settings ← Actions ← General ← Workflow permissions ← **Read and write permissions** ← Save.
+  3. Actions ← "توليد صفحات SEO" ← **Run workflow** (للتجربة الأولى).
+  4. Google Search Console: أضف الموقع وقدّم `sitemap.xml`.
+- إذا فعّلت App Check **Enforce** على Firestore، مولّد SEO (طلب REST بلا متصفح) رح يتحجب. الحل الاختياري: سجّل Debug token فـ App Check وحطو Secret باسم `APPCHECK_DEBUG_TOKEN` فـ GitHub. **هذا المسار ما جرّبتوش على Firebase الحقيقي.** وإذا ما بغيتش، خلّي Enforce مطفأ على Firestore، أو قل لي نبدّلو.
+- المولّد مختبَر على سيرفر Firestore تجريبي: هروب HTML، غياب الهاتف، رفض الصور الغريبة والمعرّفات الغريبة، ولا يمسح شي إذا فشل الجلب. لكن ما جرّبتوش على Firestore الحقيقي.
+### سرعة وتجربة
+- أيقونة جديدة بحرف "س" (بدل أيقونة القائمة)، صورة مشاركة `og-image.png`، اختصارات التطبيق (نشر/بحث/توصيل) وروابط `?view=post|search|delivery|favorites|promotions|account`.
+- `modulepreload` وpreconnect وتحميل الصور `decoding="async"`. نسخة الكاش `v18`.
+### ترتيب الرفع
+ارفع كل الملفات (القواعد ما تتغيّرتش) ← حدّث بـ `Ctrl+Shift+R` (الأيقونة ممكن تتأخر فـ الهاتف: امسح التطبيق وزِدو من جديد) ← شغّل الـWorkflow.
+### ما لم يُختبر
+قواعد Firestore ما اتجرّبتش فـ Emulator (ما يتحمّلش فـ بيئتي)، وApp Check وتسجيل Google الحقيقي تحت الـCSP.

@@ -12,7 +12,9 @@
       ".firebaserc",
       "**/.*",
       "**/node_modules/**",
-      "firestore.indexes.json"
+      "firestore.indexes.json",
+      "scripts/**",
+      ".github/**"
     ],
     "headers": [
       {
@@ -29,6 +31,18 @@
           {
             "key": "X-Frame-Options",
             "value": "DENY"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(), microphone=(), payment=(), usb=(), interest-cohort=()"
+          },
+          {
+            "key": "Strict-Transport-Security",
+            "value": "max-age=31536000; includeSubDomains"
+          },
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "same-origin-allow-popups"
           }
         ]
       },

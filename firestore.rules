@@ -1,0 +1,450 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ⚠️ لازم يبقى مطابق تماماً لـ ADMIN_EMAIL فـ admin.js.
+    function primaryAdminEmail() { return '111aez333@gmail.com'; }
+
+    function isAuth() { return request.auth != null; }
+    function isOwner(uid) { return isAuth() && request.auth.uid == uid; }
+    function isPrimaryAdmin() { return isAuth() && request.auth.token.email == primaryAdminEmail() && request.auth.token.email_verified == true; }
+    function isAdmin() {
+      return isAuth() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    // المستخدم الموقوف (banned) ما يقدرش يكتب أي محتوى جديد
+    function notBanned() {
+      return isAuth() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('banned', false) != true;
+    }
+    function isParticipant(convId) {
+      return isAuth() && exists(/databases/$(database)/documents/conversations/$(convId)) &&
+        request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+    }
+    // الطرف التاني فـ المحادثة (participants فيها اثنين)
+    function otherOf(parts) { return parts[0] == request.auth.uid ? parts[1] : parts[0]; }
+
+    // أدوات التحقق من الإعلان (روابط الصور لازم من Cloudinary، والعنوان بلا روابط)
+    function cloudImg(u) { return u is string && u.size() <= 500 && u.matches('https://res\\.cloudinary\\.com/prp1oxzx/.*'); }
+    function imgsOk(l) {
+      return l.size() <= 5 && (l.size() < 1 || cloudImg(l[0])) && (l.size() < 2 || cloudImg(l[1])) &&
+        (l.size() < 3 || cloudImg(l[2])) && (l.size() < 4 || cloudImg(l[3])) && (l.size() < 5 || cloudImg(l[4]));
+    }
+    function cleanTitle(t) {
+      return t is string && t.size() >= 1 && t.size() <= 90 && !t.matches('(?i).*(https?://|www\\.|t\\.me|bit\\.ly|wa\\.me).*');
+    }
+
+    // ===================== USERS =====================
+    // الملف الشخصي خاص: صاحبو والأدمن فقط (فيه الإيميل والهاتف). الإعلانات تحمل اسم البائع بروحها.
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+
+      allow create: if isOwner(uid) && request.resource.data.uid == uid && (
+        (request.resource.data.role == 'user' &&
+          request.resource.data.verified == false && request.resource.data.banned == false) ||
+        (isPrimaryAdmin() && request.resource.data.role == 'admin')
+      );
+
+      allow update: if isAdmin() || (
+        isOwner(uid) && isPrimaryAdmin() &&
+        resource.data.role != 'admin' && request.resource.data.role == 'admin' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','updatedAt'])
+      ) || (
+        isOwner(uid) &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.verified == resource.data.verified &&
+        request.resource.data.banned == resource.data.banned &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['displayName','email','photoURL','favoriteIds','phone','wilaya','commune','updatedAt'])
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // ===================== LISTINGS =====================
+    match /listings/{id} {
+      // القراءة العامة للإعلانات المنشورة فقط؛ المالك والأدمن يقدرو يشوفو إعلاناتهم المخفية.
+      allow read: if resource.data.status == 'published' || isOwner(resource.data.ownerUid) || isAdmin();
+
+      allow create: if isAuth() && notBanned() &&
+        request.resource.data.keys().hasOnly([
+          'title','price','category','wilaya','city','condition','delivery','images','image','emoji',
+          'seller','sellerVerified','ownerUid','description','hasPhone','status','flagged',
+          'flagReason','aiScore','keywords','views','ratingCount','ratingSum','createdAt','updatedAt'
+        ]) &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.status == 'published' &&
+        request.resource.data.views == 0 &&
+        request.resource.data.ratingCount == 0 &&
+        request.resource.data.ratingSum == 0 &&
+        // شارة "موثّق" تتاخذ من ملف المستخدم الحقيقي، ماشي من الكلاينت
+        request.resource.data.sellerVerified == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('verified', false) &&
+        request.resource.data.seller is string && request.resource.data.seller.size() <= 80 &&
+        cleanTitle(request.resource.data.title) &&
+        request.resource.data.price is number && request.resource.data.price >= 0 &&
+        request.resource.data.description is string && request.resource.data.description.size() <= 1500 &&
+        request.resource.data.images is list && imgsOk(request.resource.data.images) &&
+        // الترتيب والصفحات تعتمد على createdAt: لازم يكون وقت السيرفر الحقيقي
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.keywords is list && request.resource.data.keywords.size() <= 25 &&
+        request.resource.data.hasPhone is bool && request.resource.data.delivery is bool &&
+        request.resource.data.category is string && request.resource.data.category.size() <= 60 &&
+        request.resource.data.wilaya is string && request.resource.data.wilaya.size() <= 60 &&
+        request.resource.data.city is string && request.resource.data.city.size() <= 80 &&
+        request.resource.data.condition is string && request.resource.data.condition.size() <= 30 &&
+        request.resource.data.image is string && (request.resource.data.image == '' || cloudImg(request.resource.data.image)) &&
+        request.resource.data.emoji is string && request.resource.data.emoji.size() <= 8 &&
+        request.resource.data.flagged is bool &&
+        // حصة النشر: مستند listingQuota لازم يتحدّث فنفس الـbatch ويحمل معرّف هذا الإعلان بالضبط (إعلان واحد لكل تحديث)
+        getAfter(/databases/$(database)/documents/listingQuota/$(request.auth.uid)).data.lastListingId == id &&
+        getAfter(/databases/$(database)/documents/listingQuota/$(request.auth.uid)).data.lastAt == request.time;
+
+      allow update: if isAdmin() || (
+        // المالك يبدّل محتوى الإعلان فقط
+        isAuth() && notBanned() && resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.ownerUid == resource.data.ownerUid &&
+        request.resource.data.status == resource.data.status &&
+        request.resource.data.views == resource.data.views &&
+        request.resource.data.ratingCount == resource.data.ratingCount &&
+        request.resource.data.ratingSum == resource.data.ratingSum &&
+        cleanTitle(request.resource.data.title) &&
+        request.resource.data.price is number && request.resource.data.price >= 0 &&
+        request.resource.data.keywords is list && request.resource.data.keywords.size() <= 25 &&
+        request.resource.data.description is string && request.resource.data.description.size() <= 1500 &&
+        request.resource.data.images is list && imgsOk(request.resource.data.images) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title','price','category','wilaya','city','condition','delivery',
+          'images','image','description','keywords','updatedAt'
+        ])
+      ) || (
+        // مشاهدة: مرة وحدة لكل مستخدم لكل إعلان (لازم يتكتب معاها مستند viewers/{uid} فنفس الـbatch)
+        isAuth() && resource.data.ownerUid != request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views','updatedAt']) &&
+        request.resource.data.views == resource.data.views + 1 &&
+        !exists(/databases/$(database)/documents/listings/$(id)/viewers/$(request.auth.uid)) &&
+        existsAfter(/databases/$(database)/documents/listings/$(id)/viewers/$(request.auth.uid))
+      ) || (
+        // تقييم: مرة وحدة لكل مستخدم، والمجموع لازم يطابق قيمة المراجعة المكتوبة فنفس الـbatch
+        isAuth() && resource.data.ownerUid != request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ratingCount','ratingSum','updatedAt']) &&
+        request.resource.data.ratingCount == resource.data.ratingCount + 1 &&
+        !exists(/databases/$(database)/documents/listings/$(id)/reviews/$(request.auth.uid + '_' + id)) &&
+        existsAfter(/databases/$(database)/documents/listings/$(id)/reviews/$(request.auth.uid + '_' + id)) &&
+        request.resource.data.ratingSum ==
+          resource.data.ratingSum + getAfter(/databases/$(database)/documents/listings/$(id)/reviews/$(request.auth.uid + '_' + id)).data.rating
+      );
+
+      allow delete: if isAdmin() || (isAuth() && resource.data.ownerUid == request.auth.uid);
+
+      match /viewers/{vid} {
+        allow create: if isAuth() && vid == request.auth.uid &&
+          request.resource.data.keys().hasOnly(['createdAt']);
+        allow read: if isAdmin();
+        allow update, delete: if false;
+      }
+
+      match /reviews/{reviewId} {
+        allow read: if true;
+        allow create: if isAuth() && notBanned() &&
+          reviewId == request.auth.uid + '_' + id &&
+          request.resource.data.keys().hasOnly(['raterUid','raterName','rating','comment','createdAt']) &&
+          request.resource.data.raterUid == request.auth.uid &&
+          get(/databases/$(database)/documents/listings/$(id)).data.ownerUid != request.auth.uid &&
+          request.resource.data.rating is int &&
+          request.resource.data.rating >= 1 && request.resource.data.rating <= 5 &&
+          request.resource.data.get('comment', '') is string &&
+          request.resource.data.get('comment', '').size() <= 500;
+        allow update: if false;
+        // حذف المراجعة من الإدارة فقط (باش ما يتلاعبش المجموع)
+        allow delete: if isAdmin();
+      }
+
+      // رقم الهاتف وثيقة خاصة (ما تتجابش بـ query جماعي): يقراها المسجّل فقط إذا البائع قرّر يعرضها (hasPhone)، أو المالك والأدمن.
+      match /private/{docId} {
+        allow read: if isAuth() && docId == 'contact' &&
+          (resource.data.showPhone == true || resource.data.ownerUid == request.auth.uid || isAdmin());
+        allow create, update: if isAuth() && docId == 'contact' &&
+          request.resource.data.keys().hasOnly(['phone','showPhone','ownerUid']) &&
+          request.resource.data.phone is string && request.resource.data.phone.size() <= 20 &&
+          request.resource.data.showPhone is bool && request.resource.data.ownerUid is string &&
+          (isAdmin() || (notBanned() && request.resource.data.ownerUid == request.auth.uid &&
+            getAfter(/databases/$(database)/documents/listings/$(id)).data.ownerUid == request.auth.uid));
+        allow delete: if isAdmin() || resource.data.ownerUid == request.auth.uid;
+      }
+    }
+
+    // ===================== LISTING QUOTA (ضد السبام) =====================
+    // مستند واحد لكل مستخدم: فاصل 60 ثانية بين إعلان وإعلان، و20 إعلان كحد أقصى فكل 24 ساعة.
+    // ما يتبدّل غير بالقيم الصحيحة: المستخدم ما يقدرش ينقّص العداد ولا يرجّع الوقت للوراء.
+    match /listingQuota/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && notBanned() &&
+        request.resource.data.keys().hasOnly(['count','windowStart','lastAt','lastListingId']) &&
+        request.resource.data.count == 1 &&
+        request.resource.data.windowStart == request.time &&
+        request.resource.data.lastAt == request.time &&
+        request.resource.data.lastListingId is string;
+      allow update: if isOwner(uid) && notBanned() &&
+        request.resource.data.keys().hasOnly(['count','windowStart','lastAt','lastListingId']) &&
+        request.resource.data.lastAt == request.time &&
+        request.resource.data.lastListingId is string &&
+        resource.data.lastAt < request.time - duration.value(60, 's') && (
+          // نفس النافذة (أقل من 24 ساعة): العداد يزيد بواحد وما يفوتش 20
+          (resource.data.windowStart > request.time - duration.value(24, 'h') &&
+            request.resource.data.windowStart == resource.data.windowStart &&
+            request.resource.data.count == resource.data.count + 1 &&
+            request.resource.data.count <= 20)
+          ||
+          // النافذة انتهت: نافذة جديدة بعداد 1
+          (resource.data.windowStart <= request.time - duration.value(24, 'h') &&
+            request.resource.data.windowStart == request.time &&
+            request.resource.data.count == 1)
+        );
+      allow delete: if isAdmin();
+    }
+
+    // ===================== DRIVERS =====================
+    match /drivers/{id} {
+      // الموصل المقبول والموثّق فقط يظهر للعامة؛ المالك والأدمن يقرؤون بقية الحالات.
+      allow read: if (resource.data.status == 'approved' && resource.data.verified == true) || isOwner(resource.data.ownerUid) || isAdmin();
+      allow create: if isAuth() && notBanned() && request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.status == 'pending' && request.resource.data.verified == false &&
+        request.resource.data.name is string && request.resource.data.name.size() <= 80 &&
+        request.resource.data.get('ratingCount', 0) == 0 && request.resource.data.get('ratingSum', 0) == 0;
+      allow update: if isAdmin() || (isAuth() && resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.ownerUid == resource.data.ownerUid &&
+        request.resource.data.status == resource.data.status &&
+        request.resource.data.verified == resource.data.verified &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['activityStatus','lastSeenAt','updatedAt'])) || (
+        // تقييم موصّل: مرة وحدة لكل مستخدم، والمجموع لازم يطابق قيمة المراجعة المكتوبة فنفس الـbatch
+        isAuth() && notBanned() &&
+        resource.data.status == 'approved' && resource.data.verified == true &&
+        resource.data.ownerUid != request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ratingCount','ratingSum']) &&
+        request.resource.data.ratingCount == resource.data.get('ratingCount', 0) + 1 &&
+        !exists(/databases/$(database)/documents/drivers/$(id)/reviews/$(request.auth.uid)) &&
+        existsAfter(/databases/$(database)/documents/drivers/$(id)/reviews/$(request.auth.uid)) &&
+        request.resource.data.ratingSum ==
+          resource.data.get('ratingSum', 0) + getAfter(/databases/$(database)/documents/drivers/$(id)/reviews/$(request.auth.uid)).data.rating
+      );
+      allow delete: if isAdmin();
+
+      // آراء الزبائن: مراجعة واحدة لكل مستخدم (المعرّف = uid المقيّم)، ما تتعدّلش، والحذف للإدارة فقط
+      match /reviews/{reviewId} {
+        allow read: if true;
+        allow create: if isAuth() && notBanned() && reviewId == request.auth.uid &&
+          request.resource.data.keys().hasOnly(['raterUid','raterName','rating','comment','createdAt']) &&
+          request.resource.data.raterUid == request.auth.uid &&
+          request.resource.data.createdAt == request.time &&
+          get(/databases/$(database)/documents/drivers/$(id)).data.status == 'approved' &&
+          get(/databases/$(database)/documents/drivers/$(id)).data.verified == true &&
+          get(/databases/$(database)/documents/drivers/$(id)).data.ownerUid != request.auth.uid &&
+          request.resource.data.rating is int &&
+          request.resource.data.rating >= 1 && request.resource.data.rating <= 5 &&
+          request.resource.data.raterName is string && request.resource.data.raterName.size() <= 80 &&
+          request.resource.data.get('comment', '') is string &&
+          request.resource.data.get('comment', '').size() <= 300;
+        allow update: if false;
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ===================== CONVERSATIONS / MESSAGES =====================
+    match /conversations/{id} {
+      // resource == null: باش getDoc على محادثة ما تكونتش بعد ما يطيّحش permission-denied
+      allow read: if isAuth() && (resource == null || request.auth.uid in resource.data.participants);
+      allow create: if isAuth() && notBanned() &&
+        request.auth.uid in request.resource.data.participants &&
+        request.resource.data.participants.size() == 2 &&
+        request.resource.data.participants[0] != request.resource.data.participants[1] &&
+        // المعرّف لازم يبدأ بمعرّفي الطرفين (يمنع حجز معرّف محادثة غيرك)
+        (id.matches(request.resource.data.participants[0] + '_' + request.resource.data.participants[1] + '_.*') ||
+         id.matches(request.resource.data.participants[1] + '_' + request.resource.data.participants[0] + '_.*')) &&
+        !exists(/databases/$(database)/documents/blocks/$(otherOf(request.resource.data.participants) + '_' + request.auth.uid));
+      allow update: if isAdmin() || (isAuth() && request.auth.uid in resource.data.participants &&
+        request.resource.data.participants == resource.data.participants);
+    }
+
+    match /conversations/{id}/messages/{msg} {
+      allow read: if isParticipant(id);
+      allow create: if isParticipant(id) && notBanned() &&
+        request.resource.data.senderUid == request.auth.uid &&
+        // فاصل بين الرسائل: msgThrottle لازم يتحدّث فنفس الـbatch بوقت السيرفر
+        getAfter(/databases/$(database)/documents/msgThrottle/$(request.auth.uid)).data.lastAt == request.time &&
+        request.resource.data.text is string &&
+        request.resource.data.text.size() >= 1 && request.resource.data.text.size() <= 1000 &&
+        !exists(/databases/$(database)/documents/blocks/$(otherOf(get(/databases/$(database)/documents/conversations/$(id)).data.participants) + '_' + request.auth.uid));
+      allow update, delete: if isAdmin() || (isParticipant(id) && resource.data.senderUid == request.auth.uid);
+    }
+
+    // ===================== MESSAGE THROTTLE (ضد السبام) =====================
+    // مستند واحد لكل مستخدم: فاصل 2 ثانية بين رسالة ورسالة، والوقت من السيرفر.
+    match /msgThrottle/{uid} {
+      allow create: if isOwner(uid) && notBanned() &&
+        request.resource.data.keys().hasOnly(['lastAt']) && request.resource.data.lastAt == request.time;
+      allow update: if isOwner(uid) && notBanned() &&
+        request.resource.data.keys().hasOnly(['lastAt']) && request.resource.data.lastAt == request.time &&
+        resource.data.lastAt < request.time - duration.value(2, 's');
+      allow read, delete: if false;
+    }
+
+    // ===================== BLOCKS =====================
+    // doc id: `${blockerUid}_${blockedUid}`
+    match /blocks/{id} {
+      allow read: if isAuth() && resource.data.blockerUid == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.blockerUid == request.auth.uid &&
+        request.resource.data.blockedUid != request.auth.uid &&
+        id == request.auth.uid + '_' + request.resource.data.blockedUid;
+      allow delete: if isAuth() && resource.data.blockerUid == request.auth.uid;
+    }
+
+    // ===================== REPORTS =====================
+    match /reports/{id} {
+      // بلاغ واحد لكل مستخدم لكل هدف (المعرّف محدّد) + حدود الحجم
+      allow create: if isAuth() && notBanned() &&
+        request.resource.data.keys().hasOnly(['reporterUid','reporterName','targetType','targetId','reason','details','status','createdAt']) &&
+        request.resource.data.reporterUid == request.auth.uid && request.resource.data.status == 'open' &&
+        request.resource.data.reporterName is string && request.resource.data.reporterName.size() <= 80 &&
+        request.resource.data.targetType is string && request.resource.data.targetType.size() <= 20 &&
+        request.resource.data.targetId is string && request.resource.data.targetId.size() <= 128 &&
+        request.resource.data.reason is string && request.resource.data.reason.size() <= 100 &&
+        request.resource.data.details is string && request.resource.data.details.size() <= 500 &&
+        request.resource.data.createdAt == request.time &&
+        id == request.auth.uid + '_' + request.resource.data.targetType + '_' + request.resource.data.targetId;
+      allow read, delete: if isAdmin();
+      allow update: if isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt']);
+    }
+
+    // ===================== DELIVERY REQUESTS =====================
+    // الحقول: listingId, listingTitle, sellerUid, buyerUid, buyerName, phone, wilaya, city,
+    // address, location, driverId, driverUid, status
+    match /deliveryRequests/{id} {
+      allow read: if isAdmin() || (isAuth() && (
+        resource.data.buyerUid == request.auth.uid ||
+        resource.data.sellerUid == request.auth.uid ||
+        resource.data.driverUid == request.auth.uid));
+
+      allow create: if isAuth() && notBanned() &&
+        // لا نقبلو حتى حقل إضافي: خصوصاً driverUid، لأنه يمنح صاحبه حق قراءة الطلب.
+        request.resource.data.keys().hasOnly([
+          'listingId','listingTitle','sellerUid','buyerUid','buyerName','phone','wilaya','city',
+          'address','location','driverId','status','createdAt','updatedAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'listingId','listingTitle','sellerUid','buyerUid','buyerName','phone','wilaya','city',
+          'address','location','driverId','status','createdAt','updatedAt'
+        ]) &&
+        request.resource.data.buyerUid == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.driverId == null &&
+        request.resource.data.listingId is string &&
+        request.resource.data.listingTitle is string && request.resource.data.listingTitle.size() <= 90 &&
+        request.resource.data.buyerName is string && request.resource.data.buyerName.size() >= 2 && request.resource.data.buyerName.size() <= 80 &&
+        request.resource.data.phone is string && request.resource.data.phone.size() >= 8 && request.resource.data.phone.size() <= 20 &&
+        request.resource.data.wilaya is string && request.resource.data.wilaya.size() <= 60 &&
+        request.resource.data.city is string && request.resource.data.city.size() <= 80 &&
+        request.resource.data.address is string && request.resource.data.address.size() <= 300 &&
+        (request.resource.data.location == null ||
+          (request.resource.data.location is map &&
+           request.resource.data.location.keys().hasOnly(['lat','lng']) &&
+           request.resource.data.location.lat is number && request.resource.data.location.lat >= -90 && request.resource.data.location.lat <= 90 &&
+           request.resource.data.location.lng is number && request.resource.data.location.lng >= -180 && request.resource.data.location.lng <= 180)) &&
+        // الإعلان لازم يكون منشوراً، يدعم التوصيل، والبائع هو مالكه الحقيقي.
+        get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.status == 'published' &&
+        get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.delivery == true &&
+        request.resource.data.sellerUid == get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.ownerUid &&
+        request.resource.data.sellerUid != request.auth.uid;
+
+      allow update: if isAdmin() || (
+        // الموصّل المعيّن يبدّل الحالة برك وبالترتيب: assigned → picked_up → delivering → completed
+        isAuth() && resource.data.driverUid == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt']) && (
+          (resource.data.status == 'assigned' && request.resource.data.status == 'picked_up') ||
+          (resource.data.status == 'picked_up' && request.resource.data.status == 'delivering') ||
+          (resource.data.status == 'delivering' && request.resource.data.status == 'completed')
+        )
+      ) || (
+        // موصّل مقبول يقبل طلباً اعتمدته الإدارة وما زال بلا موصّل (مع تحديث deliveryPool فنفس الـbatch)
+        isAuth() && resource.data.status == 'approved' && resource.data.driverId == null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['driverId','driverUid','status','updatedAt']) &&
+        request.resource.data.status == 'assigned' && request.resource.data.driverUid == request.auth.uid &&
+        get(/databases/$(database)/documents/drivers/$(request.resource.data.driverId)).data.ownerUid == request.auth.uid &&
+        get(/databases/$(database)/documents/drivers/$(request.resource.data.driverId)).data.status == 'approved' &&
+        get(/databases/$(database)/documents/drivers/$(request.resource.data.driverId)).data.verified == true &&
+        existsAfter(/databases/$(database)/documents/deliveryPool/$(id)) &&
+        getAfter(/databases/$(database)/documents/deliveryPool/$(id)).data.status == 'taken' &&
+        getAfter(/databases/$(database)/documents/deliveryPool/$(id)).data.takenBy == request.auth.uid
+      );
+
+      allow delete: if isAdmin() || (isAuth() && resource.data.buyerUid == request.auth.uid &&
+        resource.data.status in ['pending','pending_review','approved','rejected','cancelled','completed']);
+    }
+
+    // ===================== DELIVERY POOL =====================
+    // نسخة عامة بلا بيانات شخصية (عنوان الإعلان + الولاية + البلدية) باش الموصّلين يشوفو الطلبات المتاحة.
+    match /deliveryPool/{id} {
+      allow read: if isAuth() && (resource.data.status == 'open' || isAdmin());
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (isAuth() && resource.data.status == 'open' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','takenBy']) &&
+        request.resource.data.status == 'taken' && request.resource.data.takenBy == request.auth.uid &&
+        getAfter(/databases/$(database)/documents/deliveryRequests/$(id)).data.driverUid == request.auth.uid);
+    }
+
+    // ===================== PROMOTIONS =====================
+    match /promotions/{id} {
+      allow read: if true;
+      allow create: if isAuth() && notBanned() && request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.status == 'pending' && request.resource.data.keys().size() <= 15;
+      allow update, delete: if isAdmin();
+    }
+
+    // ===================== NOTIFICATIONS =====================
+    // إشعارات الرسائل وطلبات التوصيل: المرسل لازم يكون طرفاً فعلياً في العملية.
+    match /notifications/{id} {
+      allow read: if isAuth() && resource.data.toUserId == request.auth.uid;
+      allow create: if isAuth() && notBanned() &&
+        request.resource.data.keys().hasOnly([
+          'toUserId','fromUserId','type','title','body','conversationId','messageId','deliveryRequestId','status','read','createdAt'
+        ]) &&
+        request.resource.data.toUserId is string && request.resource.data.toUserId != request.auth.uid &&
+        request.resource.data.fromUserId == request.auth.uid &&
+        request.resource.data.type in ['message','delivery','delivery_update'] &&
+        request.resource.data.title is string && request.resource.data.title.size() <= 80 &&
+        request.resource.data.body is string && request.resource.data.body.size() <= 180 &&
+        request.resource.data.read == false && request.resource.data.createdAt == request.time &&
+        ((request.resource.data.type == 'message' &&
+          request.resource.data.conversationId is string &&
+          exists(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)) &&
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.participants &&
+          request.resource.data.toUserId in get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.participants &&
+          request.resource.data.messageId is string &&
+          id == 'message_' + request.resource.data.messageId &&
+          existsAfter(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)/messages/$(request.resource.data.messageId)) &&
+          getAfter(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)/messages/$(request.resource.data.messageId)).data.senderUid == request.auth.uid &&
+          !('deliveryRequestId' in request.resource.data) && !('status' in request.resource.data)) ||
+         (request.resource.data.type == 'delivery' &&
+          request.resource.data.deliveryRequestId is string &&
+          exists(/databases/$(database)/documents/deliveryRequests/$(request.resource.data.deliveryRequestId)) &&
+          get(/databases/$(database)/documents/deliveryRequests/$(request.resource.data.deliveryRequestId)).data.buyerUid == request.auth.uid &&
+          get(/databases/$(database)/documents/deliveryRequests/$(request.resource.data.deliveryRequestId)).data.sellerUid == request.resource.data.toUserId &&
+          id == request.resource.data.deliveryRequestId + '_seller' &&
+          !('conversationId' in request.resource.data) && !('messageId' in request.resource.data) && !('status' in request.resource.data)) ||
+         (request.resource.data.type == 'delivery_update' && isAdmin() &&
+          request.resource.data.deliveryRequestId is string && request.resource.data.status is string &&
+          exists(/databases/$(database)/documents/deliveryRequests/$(request.resource.data.deliveryRequestId)) &&
+          get(/databases/$(database)/documents/deliveryRequests/$(request.resource.data.deliveryRequestId)).data.status == request.resource.data.status &&
+          (get(/databases/$(database)/documents/deliveryRequests/$(request.resource.data.deliveryRequestId)).data.buyerUid == request.resource.data.toUserId ||
+           get(/databases/$(database)/documents/deliveryRequests/$(request.resource.data.deliveryRequestId)).data.driverUid == request.resource.data.toUserId) &&
+          id == request.resource.data.deliveryRequestId + '_' + request.resource.data.status + '_' + request.resource.data.toUserId &&
+          !('conversationId' in request.resource.data) && !('messageId' in request.resource.data)));
+      allow update: if isAdmin() || (isAuth() && resource.data.toUserId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']) &&
+        request.resource.data.read is bool);
+      allow delete: if isAdmin() || (isAuth() && resource.data.toUserId == request.auth.uid);
+    }
+  }
+}

@@ -1153,3 +1153,21 @@ body { overscroll-behavior-y:none; }
 .driver-facts div{background:var(--primary-light);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
 .driver-facts small{color:var(--muted,#666);font-size:12px}
 .pool-title{margin:0 0 8px;font-size:16px}.pool-item{border:1px dashed var(--primary)}
+
+
+/* ===== 2.4: تقييم الموصّلين + آراء الزبائن ===== */
+.drv-rate { display: inline-block; font-weight: 800; font-size: 13px; color: #b45309; margin: 2px 0; }
+.drv-rate small { color: var(--muted); font-weight: 600; }
+.drv-rate.none { color: var(--muted); font-weight: 600; font-size: 12px; }
+.dm-rating { display: flex; align-items: center; gap: 10px; margin: 6px 0 12px; font-weight: 800; flex-wrap: wrap; }
+.dm-score { font-size: 30px; color: var(--primary); }
+.stars { color: #fbbf24; letter-spacing: 2px; }
+.dm-sub { margin: 18px 0 8px; font-size: 16px; }
+.review-list { display: grid; gap: 10px; }
+.review { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+.review-top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.review p { font-size: 14px; line-height: 1.6; }
+/* نقطة الحالة كانت رمادية دايماً: الكلاسات active/busy/offline */
+.status-dot.active::before { background: var(--success); }
+.status-dot.busy::before { background: var(--warning); }
+.status-dot.offline::before { background: var(--muted); }

@@ -1,8 +1,8 @@
-const CACHE_NAME = 'souq-algeria-v16';
+const CACHE_NAME = 'souq-algeria-v18';
 const APP_SHELL = [
   './', './index.html', './style.css', './app.js',
   './firebase-config.js', './manifest.json',
-  './icon-192.png', './icon-512.png'
+  './icon-192.png', './icon-512.png', './og-image.png'
 ];
 // صفحة الإدارة (admin.html / admin.js) عمداً ماشي فـ الكاش: ما تتخبّاش أبداً، ديما من الشبكة.
 
