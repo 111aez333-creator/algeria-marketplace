@@ -1,4 +1,4 @@
-const CACHE_NAME = 'souq-algeria-v18';
+const CACHE_NAME = 'souq-algeria-v19';
 const APP_SHELL = [
   './', './index.html', './style.css', './app.js',
   './firebase-config.js', './manifest.json',

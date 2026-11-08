@@ -5,7 +5,7 @@ import { writeFile, mkdir, readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const PROJECT_ID = process.env.PROJECT_ID || 'gallery-3008c';
-const SITE_URL = (process.env.SITE_URL || 'https://111aez333-creator.github.io/-/').replace(/\/?$/, '/');
+const SITE_URL = (process.env.SITE_URL || 'https://111aez333-creator.github.io/algeria-marketplace/').replace(/\/?$/, '/');
 const OUT = process.env.OUT_DIR || '.';
 const API_ROOT = process.env.FIRESTORE_ROOT || 'https://firestore.googleapis.com';
 const CLOUD = 'prp1oxzx';
