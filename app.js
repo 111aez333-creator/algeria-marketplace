@@ -583,16 +583,33 @@ function initSlider(root,auto=0){
 }
 // ---------- الترويجات فـ المقدمة (شريط إعلانات متحرك) ----------
 // نحجزو مكان الشريط قبل ما يوصل من Firestore (يقلّل CLS): إذا كان فيه ترويج فـ الزيارة اللي فاتت
-(()=>{try{if(localStorage.getItem('souq_hadPromo')!=='0'){const el=document.querySelector('#promoHero');if(el&&!el.innerHTML){el.hidden=false;el.innerHTML='<div class="gal promo-gal"><div class="gal-slide promo-slide"></div></div>';}}}catch{}})();
+function promoMarkup(ps){
+  const slide=(p,i)=>{const u=safeUrl(p.url),img=p.image?`<img src="${escapeHtml(cloudinaryUrl(p.image,720,336))}" alt=""${i===0?' fetchpriority="high" decoding="async"':' loading="lazy" decoding="async"'}>`:'<div class="promo-ph">📣</div>';
+    const inner=`${img}<div class="promo-cap"><span class="promo-badge">ترويج</span><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.type||'')}${p.wilaya?' • 📍 '+escapeHtml(p.wilaya):''}</small></div>`;
+    return u?`<a class="gal-slide promo-slide" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer sponsored">${inner}</a>`:`<div class="gal-slide promo-slide">${inner}</div>`;};
+  return `<div class="gal promo-gal"><div class="gal-track">${ps.map(slide).join('')}</div>${ps.length>1?`<button type="button" class="gal-btn gal-prev" aria-label="السابق">›</button><button type="button" class="gal-btn gal-next" aria-label="التالي">‹</button><div class="gal-dots">${ps.map((_,k)=>`<i class="gal-dot${k?'':' on'}"></i>`).join('')}</div>`:''}</div>`;
+}
+function promoSig(ps){return JSON.stringify(ps.map(p=>[p.name,p.type,p.wilaya,p.image,p.url]));}
+// نعرضو آخر ترويجات محفوظة فورا (قبل Firestore) باش تصير صورة LCP متاحة بكري ونحجزو المكان (يقلّل CLS).
+// إذا ما كانش كاش: نحجزو مكان فارغ إلا إذا عرفنا أنو ما كان حتى ترويج.
+(()=>{try{
+  const el=document.querySelector('#promoHero');if(!el||el.innerHTML)return;
+  let cached=null;try{cached=JSON.parse(localStorage.getItem('souq_promoCache')||'null');}catch{}
+  if(Array.isArray(cached)&&cached.length){
+    el.hidden=false;el.innerHTML=promoMarkup(cached);el.dataset.sig=promoSig(cached);
+    try{initSlider(el.firstElementChild,5000);}catch{delete el.dataset.sig;}
+  }else if(localStorage.getItem('souq_hadPromo')!=='0'){
+    el.hidden=false;el.innerHTML='<div class="gal promo-gal"><div class="gal-slide promo-slide"></div></div>';
+  }
+}catch{}})();
 function renderPromoHero(){
   const el=$('#promoHero');if(!el)return;
   const ps=promotions.filter(p=>p.status==='approved').sort((a,b)=>(b.image?1:0)-(a.image?1:0)).slice(0,8);
-  if(!ps.length){el.hidden=true;el.innerHTML='';try{localStorage.setItem('souq_hadPromo','0');}catch{}return;}
-  try{localStorage.setItem('souq_hadPromo','1');}catch{}
-  const slide=p=>{const u=safeUrl(p.url),inner=`${p.image?`<img src="${escapeHtml(cloudinaryUrl(p.image,900,420))}" alt="">`:'<div class="promo-ph">📣</div>'}<div class="promo-cap"><span class="promo-badge">ترويج</span><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.type||'')}${p.wilaya?' • 📍 '+escapeHtml(p.wilaya):''}</small></div>`;
-    return u?`<a class="gal-slide promo-slide" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer sponsored">${inner}</a>`:`<div class="gal-slide promo-slide">${inner}</div>`;};
-  el.hidden=false;
-  el.innerHTML=`<div class="gal promo-gal"><div class="gal-track">${ps.map(slide).join('')}</div>${ps.length>1?`<button type="button" class="gal-btn gal-prev" aria-label="السابق">›</button><button type="button" class="gal-btn gal-next" aria-label="التالي">‹</button><div class="gal-dots">${ps.map((_,k)=>`<i class="gal-dot${k?'':' on'}"></i>`).join('')}</div>`:''}</div>`;
+  if(!ps.length){el.hidden=true;el.innerHTML='';delete el.dataset.sig;try{localStorage.setItem('souq_hadPromo','0');localStorage.removeItem('souq_promoCache');}catch{}return;}
+  try{localStorage.setItem('souq_hadPromo','1');localStorage.setItem('souq_promoCache',JSON.stringify(ps.map(p=>({name:p.name,type:p.type,wilaya:p.wilaya,image:p.image,url:p.url}))));}catch{}
+  const sig=promoSig(ps);
+  if(el.dataset.sig===sig&&el.querySelector('.gal-track'))return; // نفس المعروض من الكاش: ما نعاودوش نرسمو (يحافظ على LCP وما يعملش وميض)
+  el.hidden=false;el.innerHTML=promoMarkup(ps);el.dataset.sig=sig;
   initSlider(el.firstElementChild,5000);
 }
 

@@ -1,0 +1,31 @@
+name: توليد صفحات SEO
+on:
+  schedule:
+    - cron: '17 */6 * * *'   # كل 6 ساعات
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: seo
+  cancel-in-progress: true
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Generate
+        env:
+          SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+          # اختياري: فقط إذا فعّلت App Check Enforce على Firestore (Secret باسم APPCHECK_DEBUG_TOKEN)
+          APPCHECK_DEBUG_TOKEN: ${{ secrets.APPCHECK_DEBUG_TOKEN }}
+        run: node scripts/generate-seo.mjs
+      - name: Commit
+        run: |
+          git config user.name "seo-bot"
+          git config user.email "seo-bot@users.noreply.github.com"
+          git add l sitemap.xml robots.txt
+          git diff --cached --quiet || git commit -m "chore: تحديث صفحات SEO"
+          git push
