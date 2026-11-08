@@ -48,7 +48,7 @@
 
       <div class="desktop-search">
         <span class="search-icon">⌕</span>
-        <input id="globalSearch" type="search" autocomplete="off" aria-label="البحث في سوق الجزائر" aria-controls="searchSuggestions" aria-expanded="false" placeholder="وش راك تقلب؟ iPhone، PC، سيارة...">
+        <input id="globalSearch" type="search" autocomplete="off" aria-label="البحث في سوق الجزائر" role="combobox" aria-autocomplete="list" aria-controls="searchSuggestions" aria-expanded="false" placeholder="وش راك تقلب؟ iPhone، PC، سيارة...">
         <button id="clearSearch" class="clear-search" hidden aria-label="مسح البحث">×</button>
         <div id="searchSuggestions" class="search-suggestions" role="listbox" hidden></div>
       </div>
@@ -108,7 +108,7 @@
         <div id="homeListings" class="listing-grid"></div>
       </section>
 
-      <section class="container section feature-strip">
+      <div class="container section feature-strip">
         <div class="feature-card">
           <span>🚗</span>
           <div><b>توصيل داخل الجزائر</b><small>اختار موصّل راجعته الإدارة وتواصل معاه مباشرة.</small></div>
@@ -124,7 +124,7 @@
           <div><b>الترويج المجاني</b><small>روّج متجرك أو مشروعك مجاناً.</small></div>
           <button data-view="promotions">اكتشف</button>
         </div>
-      </section>
+      </div>
 
       <section class="container section">
         <div class="section-head">
@@ -173,7 +173,7 @@
               <option value="views">الأكثر مشاهدة</option>
             </select>
           </div>
-          <div id="savedSearches" class="saved-searches" aria-label="عمليات البحث المحفوظة"></div>
+          <div id="savedSearches" class="saved-searches" role="group" aria-label="عمليات البحث المحفوظة"></div>
           <div id="resultsGrid" class="listing-grid"></div>
           <div class="load-more-wrap"><button id="loadMoreBtn" class="secondary" type="button" hidden>عرض المزيد ↓</button></div>
         </div>
@@ -473,7 +473,7 @@
           <button type="button" data-star="4">★</button>
           <button type="button" data-star="5">★</button>
         </div>
-        <input type="hidden" name="rating" id="ratingValue" required>
+        <input type="hidden" name="rating" id="ratingValue">
         <label>تعليق <span class="muted">(اختياري)</span><textarea name="comment" maxlength="500" rows="3"></textarea></label>
         <button class="primary full" type="submit">إرسال التقييم</button>
       </form>

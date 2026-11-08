@@ -582,10 +582,13 @@ function initSlider(root,auto=0){
   root.addEventListener('mouseenter',stop);root.addEventListener('mouseleave',start);start();
 }
 // ---------- الترويجات فـ المقدمة (شريط إعلانات متحرك) ----------
+// نحجزو مكان الشريط قبل ما يوصل من Firestore (يقلّل CLS): إذا كان فيه ترويج فـ الزيارة اللي فاتت
+(()=>{try{if(localStorage.getItem('souq_hadPromo')==='1'){const el=document.querySelector('#promoHero');if(el&&!el.innerHTML){el.hidden=false;el.innerHTML='<div class="gal promo-gal"><div class="gal-slide promo-slide"></div></div>';}}}catch{}})();
 function renderPromoHero(){
   const el=$('#promoHero');if(!el)return;
   const ps=promotions.filter(p=>p.status==='approved').sort((a,b)=>(b.image?1:0)-(a.image?1:0)).slice(0,8);
-  if(!ps.length){el.hidden=true;el.innerHTML='';return;}
+  if(!ps.length){el.hidden=true;el.innerHTML='';try{localStorage.setItem('souq_hadPromo','0');}catch{}return;}
+  try{localStorage.setItem('souq_hadPromo','1');}catch{}
   const slide=p=>{const u=safeUrl(p.url),inner=`${p.image?`<img src="${escapeHtml(cloudinaryUrl(p.image,900,420))}" alt="">`:'<div class="promo-ph">📣</div>'}<div class="promo-cap"><span class="promo-badge">ترويج</span><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.type||'')}${p.wilaya?' • 📍 '+escapeHtml(p.wilaya):''}</small></div>`;
     return u?`<a class="gal-slide promo-slide" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer sponsored">${inner}</a>`:`<div class="gal-slide promo-slide">${inner}</div>`;};
   el.hidden=false;

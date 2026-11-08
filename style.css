@@ -1171,3 +1171,9 @@ body { overscroll-behavior-y:none; }
 .status-dot.active::before { background: var(--success); }
 .status-dot.busy::before { background: var(--warning); }
 .status-dot.offline::before { background: var(--muted); }
+
+
+/* 2.5: تقليل CLS — نحجزو مكان المحتوى اللي ينزل من Firestore */
+#homeListings:empty{min-height:340px}
+#categoryGrid:empty,#homeDrivers:empty{min-height:110px}
+.promo-hero .promo-gal:not(:has(.gal-track)){background:var(--border)}
