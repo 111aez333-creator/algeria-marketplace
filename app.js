@@ -583,7 +583,7 @@ function initSlider(root,auto=0){
 }
 // ---------- الترويجات فـ المقدمة (شريط إعلانات متحرك) ----------
 // نحجزو مكان الشريط قبل ما يوصل من Firestore (يقلّل CLS): إذا كان فيه ترويج فـ الزيارة اللي فاتت
-(()=>{try{if(localStorage.getItem('souq_hadPromo')==='1'){const el=document.querySelector('#promoHero');if(el&&!el.innerHTML){el.hidden=false;el.innerHTML='<div class="gal promo-gal"><div class="gal-slide promo-slide"></div></div>';}}}catch{}})();
+(()=>{try{if(localStorage.getItem('souq_hadPromo')!=='0'){const el=document.querySelector('#promoHero');if(el&&!el.innerHTML){el.hidden=false;el.innerHTML='<div class="gal promo-gal"><div class="gal-slide promo-slide"></div></div>';}}}catch{}})();
 function renderPromoHero(){
   const el=$('#promoHero');if(!el)return;
   const ps=promotions.filter(p=>p.status==='approved').sort((a,b)=>(b.image?1:0)-(a.image?1:0)).slice(0,8);
@@ -685,7 +685,7 @@ function ratingChipHtml(d){
 }
 function driverCard(d){
   const st=statusMeta(d),ini=escapeHtml((d.name||'م').trim().charAt(0));
-  return`<article class="driver driver-pro" id="driver-${escapeHtml(d.id)}" data-driver-open="${escapeHtml(d.id)}" tabindex="0" role="button" aria-label="${escapeHtml(d.name||'موصّل')}"><div class="driver-avatar ${st.s}">${ini}</div><div class="driver-info"><h3>${escapeHtml(d.name||'موصّل')} ${d.verified?'<span class="verified">✓</span>':''}</h3><div class="meta">🚗 ${escapeHtml(d.vehicle||'مركبة')} • 📍 ${escapeHtml(d.wilaya||'')}</div>${ratingChipHtml(d)}<div class="activity-label">🕒 ${escapeHtml(st.lastSeen)}</div></div><div class="driver-side"><span class="status-dot ${st.s}">${st.label}</span>${driverNear(d)?'<span class="near-badge">📍 الأقرب لك</span>':''}<span class="driver-more">التفاصيل ‹</span></div></article>`;
+  return`<div class="driver driver-pro" id="driver-${escapeHtml(d.id)}" data-driver-open="${escapeHtml(d.id)}" tabindex="0" role="button" aria-label="${escapeHtml(d.name||'موصّل')}"><div class="driver-avatar ${st.s}">${ini}</div><div class="driver-info"><h3>${escapeHtml(d.name||'موصّل')} ${d.verified?'<span class="verified">✓</span>':''}</h3><div class="meta">🚗 ${escapeHtml(d.vehicle||'مركبة')} • 📍 ${escapeHtml(d.wilaya||'')}</div>${ratingChipHtml(d)}<div class="activity-label">🕒 ${escapeHtml(st.lastSeen)}</div></div><div class="driver-side"><span class="status-dot ${st.s}">${st.label}</span>${driverNear(d)?'<span class="near-badge">📍 الأقرب لك</span>':''}<span class="driver-more">التفاصيل ‹</span></div></div>`;
 }
 let openDriverId=null;
 function closeDriverModal(){const m=$('#driverModal');if(m)m.hidden=true;openDriverId=null;}

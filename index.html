@@ -25,6 +25,11 @@
   <meta name="twitter:card" content="summary_large_image">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"سوق الجزائر","url":"https://111aez333-creator.github.io/algeria-marketplace/","inLanguage":"ar"}</script>
   <link rel="modulepreload" href="app.js">
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.17.1/firebase-app-check.js">
   <link rel="modulepreload" href="firebase-config.js">
   <link rel="preconnect" href="https://res.cloudinary.com">
   <link rel="manifest" href="manifest.json">
@@ -32,7 +37,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://api.cloudinary.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="fonts.js" defer></script>
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"></noscript>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -48,7 +54,7 @@
 
       <div class="desktop-search">
         <span class="search-icon">⌕</span>
-        <input id="globalSearch" type="search" autocomplete="off" aria-label="البحث في سوق الجزائر" role="combobox" aria-autocomplete="list" aria-controls="searchSuggestions" aria-expanded="false" placeholder="وش راك تقلب؟ iPhone، PC، سيارة...">
+        <input id="globalSearch" type="text" inputmode="search" enterkeyhint="search" autocomplete="off" aria-label="البحث في سوق الجزائر" role="combobox" aria-autocomplete="list" aria-controls="searchSuggestions" aria-expanded="false" placeholder="وش راك تقلب؟ iPhone، PC، سيارة...">
         <button id="clearSearch" class="clear-search" hidden aria-label="مسح البحث">×</button>
         <div id="searchSuggestions" class="search-suggestions" role="listbox" hidden></div>
       </div>
@@ -188,14 +194,14 @@
       <form id="postForm" class="form-card">
         <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
         <div class="form-section">
-          <h3>معلومات المنتج</h3>
+          <h2>معلومات المنتج</h2>
           <div class="form-grid">
             <label>عنوان الإعلان<input name="title" id="postTitle" required maxlength="90" placeholder="مثال: iPhone 13 128GB"></label>
             <label>السعر بالدينار<input name="price" type="number" min="0" required placeholder="25000"></label>
-            <label>القسم<select name="category" id="postCategory" required></select></label>
-            <label>الولاية<select name="wilaya" id="postWilaya" required></select></label>
+            <label>القسم<select name="category" id="postCategory" required><option value="">اختار القسم</option></select></label>
+            <label>الولاية<select name="wilaya" id="postWilaya" required><option value="">اختار الولاية</option></select></label>
             <label>البلدية<input name="city" maxlength="60" placeholder="مثال: باب الزوار"></label>
-            <label>الحالة<select name="condition" required><option>مستعمل</option><option>جديد</option></select></label>
+            <label>الحالة<select name="condition" required><option value="">اختار الحالة</option><option>مستعمل</option><option>جديد</option></select></label>
           </div>
           <div class="ai-suggestions" id="aiSuggestions" hidden>
             <b>🤖 اقتراحات AI:</b>
@@ -246,7 +252,7 @@
             <label>الاسم واللقب<input name="name" required maxlength="80"></label>
             <label>تاريخ الميلاد<input name="birth" type="date" required></label>
             <label>رقم الهاتف<input name="phone" inputmode="tel" required maxlength="30"></label>
-            <label>الولاية<select name="wilaya" id="driverWilaya" required></select></label>
+            <label>الولاية<select name="wilaya" id="driverWilaya" required><option value="">اختار الولاية</option></select></label>
             <label>نوع المركبة<select name="vehicle"><option>سيارة</option><option>دراجة نارية</option><option>شاحنة صغيرة</option></select></label>
             <label>رقم المركبة <span class="muted">(اختياري)</span><input name="vehicleNumber" maxlength="30"></label>
             <label>رابط فايسبوك <span class="muted">(اختياري)</span><input name="facebook" type="url" placeholder="https://facebook.com/..." maxlength="200"></label>
@@ -357,6 +363,7 @@
           <div class="form-grid">
             <label>اسم المتجر/المشروع<input name="name" required maxlength="80"></label>
             <label>النوع<select name="type" required>
+              <option value="">اختار النوع</option>
               <option>متجر إلكتروني</option>
               <option>صفحة فيسبوك</option>
               <option>موقع ويب</option>
@@ -364,7 +371,7 @@
               <option>خدمة</option>
               <option>أخرى</option>
             </select></label>
-            <label>الولاية<select name="wilaya" id="promoWilaya" required></select></label>
+            <label>الولاية<select name="wilaya" id="promoWilaya" required><option value="">اختار الولاية</option></select></label>
             <label>رابط <span class="muted">(اختياري)</span><input name="url" type="url" placeholder="https://..."></label>
           </div>
           <label>الوصف<textarea name="description" required rows="3" maxlength="500" placeholder="اشرح مشروعك باختصار..."></textarea></label>
@@ -400,7 +407,7 @@
         <div class="form-grid">
           <label>الاسم الكامل<input name="fullName" required maxlength="80"></label>
           <label>رقم الهاتف<input name="phone" inputmode="tel" required maxlength="30"></label>
-          <label>الولاية<select name="wilaya" id="deliveryReqWilaya" required></select></label>
+          <label>الولاية<select name="wilaya" id="deliveryReqWilaya" required><option value="">اختار الولاية</option></select></label>
           <label>البلدية<input name="city" required maxlength="60"></label>
         </div>
         <label>العنوان بالتفصيل<textarea name="address" required rows="2" maxlength="300" placeholder="رقم المنزل، الحي، أقرب معلم..."></textarea></label>
